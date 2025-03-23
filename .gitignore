@@ -1,0 +1,8 @@
+/node_modules
+.env
+logs/*
+logs/
+local_cache/*
+local_cache/
+model_cache/*
+model_cache/

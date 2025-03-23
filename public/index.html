@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spiritual AI Bot</title>
+  <style>
+    :root {
+      --primary-color: #ff7800;
+      --primary-dark: #e56e00;
+      --secondary-color: #2a5b84;
+      --text-color: #333;
+      --light-color: #f5f5f5;
+      --border-color: #ddd;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    body {
+      background-color: #f7f7f7;
+      color: var(--text-color);
+      line-height: 1.6;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    
+    header {
+      text-align: center;
+      margin-bottom: 30px;
+      padding: 30px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+    
+    header h1 {
+      font-size: 2.5rem;
+      color: var(--primary-color);
+      margin-bottom: 10px;
+    }
+    
+    header p {
+      font-size: 1.2rem;
+      color: var(--secondary-color);
+    }
+    
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .language-selector {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-right: 15px;
+    }
+    
+    .language-selector label {
+      margin-right: 10px;
+      font-weight: 500;
+    }
+    
+    .language-selector select {
+      padding: 8px 15px;
+      border-radius: 5px;
+      border: 1px solid var(--border-color);
+      background-color: white;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    
+    .chat-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background-color: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    
+    #chat-messages {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      min-height: 300px;
+      max-height: 600px;
+    }
+    
+    .message {
+      padding: 15px 20px;
+      border-radius: 10px;
+      max-width: 80%;
+      animation: fadeIn 0.3s ease-in-out;
+      position: relative;
+      line-height: 1.5;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .system {
+      align-self: center;
+      background-color: var(--light-color);
+      color: var(--secondary-color);
+      border: 1px solid var(--border-color);
+      text-align: center;
+      max-width: 90%;
+      font-style: italic;
+    }
+    
+    .user {
+      align-self: flex-end;
+      background-color: var(--secondary-color);
+      color: white;
+    }
+    
+    .bot {
+      align-self: flex-start;
+      background-color: var(--light-color);
+      border-left: 5px solid var(--primary-color);
+    }
+    
+    .bot .source {
+      margin-top: 10px;
+      font-size: 0.85rem;
+      color: var(--secondary-color);
+      border-top: 1px solid var(--border-color);
+      padding-top: 8px;
+    }
+    
+    .input-area {
+      display: flex;
+      padding: 15px;
+      border-top: 1px solid var(--border-color);
+      background-color: white;
+    }
+    
+    #user-input {
+      flex: 1;
+      padding: 15px;
+      border: 1px solid var(--border-color);
+      border-radius: 5px;
+      font-size: 1rem;
+      resize: none;
+      outline: none;
+      transition: border-color 0.3s ease;
+      min-height: 60px;
+    }
+    
+    #user-input:focus {
+      border-color: var(--primary-color);
+    }
+    
+    #send-button {
+      margin-left: 10px;
+      padding: 0 25px;
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 500;
+      transition: background-color 0.3s ease;
+    }
+    
+    #send-button:hover {
+      background-color: var(--primary-dark);
+    }
+    
+    #send-button:disabled {
+      background-color: var(--border-color);
+      cursor: not-allowed;
+    }
+    
+    .typing-indicator {
+      display: flex;
+      align-items: center;
+      margin-left: 20px;
+      color: var(--secondary-color);
+    }
+    
+    .typing-indicator span {
+      height: 8px;
+      width: 8px;
+      background-color: var(--secondary-color);
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 5px;
+      animation: typing 1s infinite;
+    }
+    
+    .typing-indicator span:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+    
+    .typing-indicator span:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+    
+    @keyframes typing {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    
+    footer {
+      text-align: center;
+      margin-top: 30px;
+      padding: 20px 0;
+      font-size: 0.9rem;
+      color: #777;
+      border-top: 1px solid var(--border-color);
+    }
+    
+    /* Responsiveness */
+    @media (max-width: 768px) {
+      header h1 {
+        font-size: 2rem;
+      }
+      
+      header p {
+        font-size: 1rem;
+      }
+      
+      .message {
+        max-width: 90%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Bhagavad Gita Spiritual Guide</h1>
+      <p>Ask questions about spiritual wisdom, life's purpose, and more from the ancient teachings of the Bhagavad Gita</p>
+    </header>
+    
+    <main>
+      <div class="language-selector">
+        <label for="language">Choose language:</label>
+        <select id="language">
+          <option value="en">English</option>
+          <option value="hi">हिंदी (Hindi)</option>
+          <option value="sa">संस्कृतम् (Sanskrit)</option>
+        </select>
+      </div>
+      
+      <div class="chat-container">
+        <div id="chat-messages">
+          <!-- Messages will appear here -->
+          <div class="message system">
+            Ask me about the spiritual wisdom in the Bhagavad Gita. You can inquire about life's purpose, duty (dharma), devotion (bhakti), knowledge (jnana), action (karma), and more.
+          </div>
+        </div>
+        
+        <div class="input-area">
+          <textarea id="user-input" placeholder="Type your question here..." rows="2"></textarea>
+          <button id="send-button">Send</button>
+        </div>
+      </div>
+    </main>
+    
+    <footer>
+      <p>Powered by Deepseek-R1 + LlamaIndex + Qdrant | Multilingual Spiritual Guide based on the Bhagavad Gita</p>
+    </footer>
+  </div>
+  
+  <script src="js/app.js"></script>
+</body>
+</html>
