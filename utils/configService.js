@@ -30,7 +30,7 @@ const configService = {
     host: () => process.env.QDRANT_HOST,
     port: () => process.env.QDRANT_PORT || 6333,
     apiKey: () => process.env.QDRANT_API_KEY,
-    memoryMode: () => process.env.QDRANT_MEMORY_MODE === 'true' || (process.env.NODE_ENV !== 'production'),
+    memoryMode: () => false, // Always use cloud in all environments
     collectionName: () => process.env.QDRANT_COLLECTION_NAME || 'bhagavad_gita',
     dimensions: () => parseInt(process.env.VECTOR_DIMENSIONS || 1536),
     distance: () => process.env.VECTOR_DISTANCE || 'Cosine',

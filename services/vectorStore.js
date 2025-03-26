@@ -13,23 +13,18 @@ class VectorStore {
    */
   constructor() {
     // Get configuration
-    const memoryMode = configService.get('vectorDB.memoryMode');
     const host = configService.get('vectorDB.host');
-    const port = configService.get('vectorDB.port');
     const apiKey = configService.get('vectorDB.apiKey');
-    
+
     // Initialize the client
-    if (memoryMode) {
-      this.client = new QdrantClient({ url: 'https://e79688f5-8874-4791-8185-64c0d7587452.us-east4-0.gcp.cloud.qdrant.io', apiKey });
-      logger.info('Initialized Qdrant client in memory mode');
-    } else {
-      this.client = new QdrantClient({
-        url: `http://${host}:${port}`,
-        apiKey
-      });
-      logger.info(`Initialized Qdrant client at ${host}:${port}`);
-    }
-    
+    // Initialize the client - always use cloud
+    this.client = new QdrantClient({
+      url: `${host}`,
+      apiKey
+    });
+    logger.info(`Initialized Qdrant client at ${host}`);
+
+
     this.collectionName = configService.get('vectorDB.collectionName');
     this.dimensions = configService.get('vectorDB.dimensions');
     this.distance = configService.get('vectorDB.distance');
@@ -38,7 +33,7 @@ class VectorStore {
       type: configService.get('vectorDB.quantization.type'),
       rescore: configService.get('vectorDB.quantization.rescore')
     };
-    
+
     // Initialize embedding service
     this.embeddingService = new EmbeddingService();
   }
@@ -59,16 +54,16 @@ class VectorStore {
         logger.error(`Failed to connect to Qdrant: ${error.message}`);
         throw new Error(`Failed to connect to Qdrant: ${error.message}`);
       }
-      
+
       const collectionExists = collections.collections.some(
         collection => collection.name === this.collectionName
       );
-      
+
       if (collectionExists) {
         logger.info(`Collection ${this.collectionName} already exists`);
         return;
       }
-      
+
       // Create the collection with updated parameters
       await this.client.createCollection(this.collectionName, {
         vectors: {
@@ -76,14 +71,14 @@ class VectorStore {
           distance: this.distance
         },
         quantization_config: this.quantization.enabled ? {
-            scalar: {
-                type: "int8",
-                quantile: 0.99,
-                always_ram: true,
-              },
+          scalar: {
+            type: "int8",
+            quantile: 0.99,
+            always_ram: true,
+          },
         } : undefined
       });
-      
+
       logger.info(`Created collection ${this.collectionName}`);
     } catch (error) {
       logger.error(`Error initializing collection: ${error.message}`);
@@ -101,40 +96,40 @@ class VectorStore {
       logger.warn('No nodes provided to add to vector store');
       return;
     }
-    
+
     logger.info(`Adding ${nodes.length} nodes to vector store`);
-    
+
     try {
       // Make sure the embedding service is initialized
       const embeddingService = this.embeddingService;
-      
+
       // Process in batches to avoid overwhelming the server
       const batchSize = 20; // Reduced batch size to prevent memory issues
-      
+
       for (let i = 0; i < nodes.length; i += batchSize) {
         const batch = nodes.slice(i, i + batchSize);
         const points = [];
-        
+
         // Create embedding for each node
         for (let j = 0; j < batch.length; j++) {
           const node = batch[j];
           try {
             const embedding = await embeddingService.getEmbedding(node.text);
-            
+
             // Convert string IDs to valid Qdrant IDs (integers or UUIDs)
             let nodeId;
             if (typeof node.id === 'number' && Number.isInteger(node.id) && node.id >= 0) {
               // Use as is if it's a positive integer
               nodeId = node.id;
-            } else if (typeof node.id === 'string' && 
-                      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(node.id)) {
+            } else if (typeof node.id === 'string' &&
+              /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(node.id)) {
               // Use as is if it's a UUID
               nodeId = node.id;
             } else {
               // Generate a numeric ID based on position
               nodeId = i + j;
             }
-            
+
             points.push({
               id: nodeId,
               vector: embedding,
@@ -149,15 +144,15 @@ class VectorStore {
             // Continue with other nodes
           }
         }
-        
+
         // Remove console.log in production code
         // console.log("🚀 ~ VectorStore ~ addDocuments ~ points:", JSON.stringify(points, null, 2));
-        
+
         if (points.length === 0) {
           logger.warn(`No valid embeddings in batch ${i} to ${i + batchSize}`);
           continue;
         }
-        
+
         try {
           // Add points to collection
           // Log a sample point to debug the structure
@@ -168,12 +163,12 @@ class VectorStore {
               payload_size: JSON.stringify(points[0].payload).length
             })}`);
           }
-          
+
           await this.client.upsert(this.collectionName, {
             wait: true,
             points
           });
-          
+
           logger.info(`Added batch of ${points.length} points to vector store (${i + points.length}/${nodes.length})`);
         } catch (error) {
           logger.error(`Error upserting batch to Qdrant: ${error.message}`);
@@ -182,15 +177,15 @@ class VectorStore {
           } else {
             // Log more details about the error
             logger.error(`Full error object: ${JSON.stringify(error)}`);
-            
+
             // Check vector dimensions
             if (points.length > 0) {
               const vectorLength = points[0].vector.length;
               logger.error(`Vector dimensions: ${vectorLength}, expected: ${this.dimensions}`);
-              
+
               // Check if any vectors are not arrays or have NaN values
-              const invalidVectors = points.filter(p => 
-                !Array.isArray(p.vector) || 
+              const invalidVectors = points.filter(p =>
+                !Array.isArray(p.vector) ||
                 p.vector.some(val => typeof val !== 'number' || isNaN(val))
               );
               if (invalidVectors.length > 0) {
@@ -201,7 +196,7 @@ class VectorStore {
           // Continue with other batches
         }
       }
-      
+
       logger.info(`Successfully added nodes to vector store`);
     } catch (error) {
       logger.error(`Error adding documents to vector store: ${error.message}`);
@@ -218,24 +213,24 @@ class VectorStore {
   async search(query, limit = 5) {
     try {
       logger.info(`Searching for: "${query}" (limit: ${limit})`);
-      
+
       // Get query embedding
       const queryEmbedding = await this.embeddingService.getEmbedding(query);
-      
+
       // Search in collection
       const results = await this.client.search(this.collectionName, {
         vector: queryEmbedding,
         limit,
         with_payload: true
       });
-      
+
       // Format results
       const formattedResults = results.map(hit => ({
         content: hit.payload.text,
         metadata: hit.payload.metadata,
         score: hit.score
       }));
-      
+
       logger.info(`Found ${formattedResults.length} results for query`);
       return formattedResults;
     } catch (error) {

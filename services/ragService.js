@@ -67,63 +67,43 @@ class RAGService {
      * @param {Array} nodes Document nodes for indexing
      * @returns {Promise<void>}
      */
-    async initialize(nodes) {
+    async initialize(nodes = []) {
         try {
-            if (this.initialized) {
-                logger.info('RAG service already initialized, skipping');
-                return;
-            }
-
-            // Initialize vector store
-            try {
-                logger.info('Initializing vector store...');
-                await this.vectorStore.initializeCollection();
-                
-                // Explicitly log the status and size of the vector collection
-                const collectionInfo = await this.vectorStore.getCollectionInfo();
-                logger.info(`Vector collection status: ${JSON.stringify(collectionInfo)}`);
-
-                // Add nodes if provided
-                if (nodes && nodes.length > 0) {
-                    logger.info(`Adding ${nodes.length} document nodes to vector store...`);
-                    await this.vectorStore.addDocuments(nodes);
-                    logger.info(`Added ${nodes.length} document nodes to vector store`);
-                    
-                    // Verify the points were actually added
-                    const pointCount = await this.vectorStore.getPointCount();
-                    logger.info(`Vector store now contains ${pointCount} points`);
-                    
-                    if (pointCount > 0) {
-                        this.vectorStoreAvailable = true;
-                    } else {
-                        logger.error('Vector store initialized but contains 0 points. Check embedding process.');
-                    }
-                } else {
-                    logger.warn('No document nodes provided for indexing');
-                    
-                    // Check if the collection already has documents
-                    const pointCount = await this.vectorStore.getPointCount();
-                    logger.info(`Vector store contains ${pointCount} existing points`);
-                    
-                    if (pointCount > 0) {
-                        this.vectorStoreAvailable = true;
-                    }
-                }
-            } catch (error) {
-                logger.error(`Vector store initialization failed: ${error.message}`);
-                logger.error(error.stack);
-                logger.warn('RAG system will operate with reduced functionality');
-                this.vectorStoreAvailable = false;
-            }
+          if (this.initialized) {
+            logger.info('RAG service already initialized, skipping');
+            return;
+          }
+      
+          // Initialize vector store connection (but don't add nodes)
+          try {
+            logger.info('Initializing vector store connection...');
+            await this.vectorStore.initializeCollection();
             
-            this.initialized = true;
-            logger.info(`Divine Knowledge system initialized successfully. Vector store available: ${this.vectorStoreAvailable}`);
-        } catch (error) {
-            logger.error(`Error initializing RAG system: ${error.message}`);
+            // Check if the collection has documents
+            const pointCount = await this.vectorStore.getPointCount();
+            logger.info(`Vector store contains ${pointCount} existing points`);
+            
+            if (pointCount > 0) {
+              this.vectorStoreAvailable = true;
+            } else {
+              logger.warn('Vector store is empty. Run initialization script locally first.');
+              this.vectorStoreAvailable = false;
+            }
+          } catch (error) {
+            logger.error(`Vector store initialization failed: ${error.message}`);
             logger.error(error.stack);
-            throw error;
+            logger.warn('RAG system will operate with reduced functionality');
+            this.vectorStoreAvailable = false;
+          }
+          
+          this.initialized = true;
+          logger.info(`Divine Knowledge system initialized successfully. Vector store available: ${this.vectorStoreAvailable}`);
+        } catch (error) {
+          logger.error(`Error initializing RAG system: ${error.message}`);
+          logger.error(error.stack);
+          throw error;
         }
-    }
+      }
 
     /**
      * Process a query in any supported language and return a response

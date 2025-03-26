@@ -27,5 +27,20 @@ router.get('/', (req, res) => {
     }
   });
 });
+// Add a system health endpoint
+router.get('/system/health', async (req, res) => {
+  try {
+    const ragService = new RAGService();
+    await ragService.initialize();
+    const health = await ragService.getSystemHealth();
+    res.json(health);
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 
 module.exports = router;
