@@ -12,6 +12,14 @@ const logFormat = format.combine(
   format.json()
 );
 
+// Get logging level with safer fallback
+let loggingLevel = 'info'; // Default fallback
+try {
+  loggingLevel = config.get('logging.level');
+} catch (error) {
+  console.warn('Logging level not defined in config, using default: info');
+}
+
 // Create console format with colors for better readability
 const consoleFormat = format.combine(
   format.colorize(),
@@ -26,7 +34,7 @@ const consoleFormat = format.combine(
 
 // Create the logger
 const logger = createLogger({
-  level: config.get('logging.level') || 'info',
+  level: loggingLevel,
   format: logFormat,
   defaultMeta: { service: 'spiritual-bot' },
   transports: [
