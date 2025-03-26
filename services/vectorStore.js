@@ -5,7 +5,7 @@ const { QdrantClient } = require('@qdrant/js-client-rest');
 const config = require('config');
 const logger = require('../utils/logger');
 // const EmbeddingService = require('./embeddingService');
-const EmbeddingService = require('./customEmbeddingService');
+const EmbeddingService = require('./openaiEmbeddingService');
 
 class VectorStore {
   /**
@@ -17,7 +17,7 @@ class VectorStore {
     
     // Initialize the client
     if (vectorConfig.memoryMode) {
-      this.client = new QdrantClient({ url: 'http://localhost:6333' });
+      this.client = new QdrantClient({ url: 'https://e79688f5-8874-4791-8185-64c0d7587452.us-east4-0.gcp.cloud.qdrant.io', apiKey: vectorConfig.apiKey });
       logger.info('Initialized Qdrant client in memory mode');
     } else {
       this.client = new QdrantClient({
@@ -114,10 +114,25 @@ class VectorStore {
           try {
             const embedding = await embeddingService.getEmbedding(node.text);
             
+            // Convert string IDs to valid Qdrant IDs (integers or UUIDs)
+            let nodeId;
+            if (typeof node.id === 'number' && Number.isInteger(node.id) && node.id >= 0) {
+              // Use as is if it's a positive integer
+              nodeId = node.id;
+            } else if (typeof node.id === 'string' && 
+                      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(node.id)) {
+              // Use as is if it's a UUID
+              nodeId = node.id;
+            } else {
+              // Generate a numeric ID based on position
+              nodeId = i + j;
+            }
+            
             points.push({
-              id: node.id || `node_${i + j}`,
+              id: nodeId,
               vector: embedding,
               payload: {
+                original_id: node.id, // Store original ID in payload if needed
                 text: node.text,
                 metadata: node.metadata || {}
               }
@@ -128,17 +143,56 @@ class VectorStore {
           }
         }
         
+        // Remove console.log in production code
+        // console.log("🚀 ~ VectorStore ~ addDocuments ~ points:", JSON.stringify(points, null, 2));
+        
         if (points.length === 0) {
           logger.warn(`No valid embeddings in batch ${i} to ${i + batchSize}`);
           continue;
         }
         
-        // Add points to collection
-        await this.client.upsert(this.collectionName, {
-          points
-        });
-        
-        logger.info(`Added batch of ${points.length} points to vector store (${i + points.length}/${nodes.length})`);
+        try {
+          // Add points to collection
+          // Log a sample point to debug the structure
+          if (points.length > 0) {
+            logger.debug(`Sample point structure: ${JSON.stringify({
+              id: points[0].id,
+              vector_length: points[0].vector.length,
+              payload_size: JSON.stringify(points[0].payload).length
+            })}`);
+          }
+          
+          await this.client.upsert(this.collectionName, {
+            wait: true,
+            points
+          });
+          
+          logger.info(`Added batch of ${points.length} points to vector store (${i + points.length}/${nodes.length})`);
+        } catch (error) {
+          logger.error(`Error upserting batch to Qdrant: ${error.message}`);
+          if (error.response && error.response.data) {
+            logger.error(`Qdrant error details: ${JSON.stringify(error.response.data)}`);
+          } else {
+            // Log more details about the error
+            logger.error(`Full error object: ${JSON.stringify(error)}`);
+            
+            // Check vector dimensions
+            if (points.length > 0) {
+              const vectorLength = points[0].vector.length;
+              logger.error(`Vector dimensions: ${vectorLength}, expected: ${this.dimensions}`);
+              
+              // Check if any vectors are not arrays or have NaN values
+              const invalidVectors = points.filter(p => 
+                !Array.isArray(p.vector) || 
+                p.vector.some(val => typeof val !== 'number' || isNaN(val))
+              );
+              if (invalidVectors.length > 0) {
+                logger.error(`Found ${invalidVectors.length} invalid vectors`);
+              }
+            }
+          }
+          // Continue with other batches
+        }
       }
       
       logger.info(`Successfully added nodes to vector store`);
@@ -218,7 +272,7 @@ class VectorStore {
   async getPointCount() {
     try {
       const info = await this.getCollectionInfo();
-      return info.vectors_count;
+      return info.points_count;
     } catch (error) {
       logger.error(`Error getting point count: ${error.message}`);
       return 0;

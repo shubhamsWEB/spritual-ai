@@ -11,7 +11,8 @@
     "cleanup": "node scripts/cleanupCache.js",
     "init": "node scripts/initSystem.js",
     "simple-init": "node scripts/simpleInit.js",
-    "test-embedding": "node scripts/testEmbedding.js"
+    "test-embedding": "node scripts/testEmbedding.js",
+    "new-init": "node scripts/newinitSystem.js"
   },
   "keywords": [
     "spiritual",

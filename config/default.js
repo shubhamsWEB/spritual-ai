@@ -29,9 +29,9 @@ module.exports = {
       host: process.env.QDRANT_HOST,
       port: process.env.QDRANT_PORT,
       apiKey: process.env.QDRANT_API_KEY,
-      memoryMode: true,
+      memoryMode: false,
       collectionName: 'bhagavad_gita',
-      dimensions: 384, // FastEmbed dimensions
+      dimensions: 1536, // FastEmbed dimensions
       distance: 'Cosine',
       size:4,
       quantization: {
@@ -44,6 +44,8 @@ module.exports = {
     // Embedding model configuration
     embedding: {
       model: 'BAAI/bge-small-en-v1.5',
+      openaiModel: 'text-embedding-3-small',
+      dimensions: 1536,
       normalize: true,
       cache: true,
     },
@@ -73,7 +75,7 @@ module.exports = {
     
     // Document processing configuration
     documents: {
-      pdfPath: './data/bhagavad_gita.pdf',
+      pdfPath: './data/Bhagavad-Gita.pdf',
       cacheEnabled: true,
       cacheTTL: 86400000, // 24 hours
     },
