@@ -2,7 +2,7 @@
  * Logger utility for the application
  */
 const { createLogger, format, transports } = require('winston');
-const config = require('config');
+const configService = require('./configService');
 
 // Define log format
 const logFormat = format.combine(
@@ -15,7 +15,7 @@ const logFormat = format.combine(
 // Get logging level with safer fallback
 let loggingLevel = 'info'; // Default fallback
 try {
-  loggingLevel = config.get('logging.level');
+  loggingLevel = configService.get('logging.level');
 } catch (error) {
   console.warn('Logging level not defined in config, using default: info');
 }

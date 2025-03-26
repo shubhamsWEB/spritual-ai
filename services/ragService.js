@@ -3,17 +3,30 @@
  * Core service for handling spiritual queries with Lord Krishna's voice
  */
 const { Groq } = require('groq-sdk');
-const config = require('config');
+const configService = require('../utils/configService');
 const logger = require('../utils/logger');
 const VectorStore = require('./vectorStore');
 const MultilingualService = require('./multilingualService');
 
 class RAGService {
     constructor() {
-        // Initialize configuration
-        this.ragConfig = config.get('rag');
-        this.llmConfig = config.get('llm');
-        this.systemPrompts = config.get('systemPrompts');
+        // Get specific config values
+        this.similarityTopK = configService.get('rag.similarityTopK');
+        this.timeout = configService.get('rag.timeout');
+        this.chunkSize = configService.get('rag.chunkSize');
+        this.chunkOverlap = configService.get('rag.chunkOverlap');
+        
+        this.provider = configService.get('llm.provider');
+        this.model = configService.get('llm.model');
+        this.temperature = configService.get('llm.temperature');
+        this.maxTokens = configService.get('llm.maxTokens');
+        
+        this.systemPrompts = {
+            en: configService.get('systemPrompts.en'),
+            hi: configService.get('systemPrompts.hi'),
+            sa: configService.get('systemPrompts.sa')
+        };
+        
         this.vectorStoreAvailable = false; // Start with false until proven otherwise
         this.initialized = false; // Track initialization state
 
@@ -152,7 +165,7 @@ class RAGService {
                     logger.info('Searching vector store for relevant passages...');
                     retrievalResults = await this.vectorStore.search(
                         processedQuestion,
-                        this.ragConfig.similarityTopK
+                        this.similarityTopK
                     );
                     logger.info(`Retrieved ${retrievalResults.length} relevant passages`);
                     
@@ -332,13 +345,13 @@ If the question cannot be answered based on the provided context, respond as Kri
 REMEMBER: Your response MUST follow the format with <think></think> tags. After the </think> tag, write ONLY in Krishna's divine voice with NO explanatory headers, numbered steps, or "Final Answer" markers.`;
 
             const completion = await this.groqClient.chat.completions.create({
-                model: this.llmConfig.model,
+                model: this.model,
                 messages: [
                     { role: "system", content: structuredSystemPrompt },
                     { role: "user", content: structuredUserPrompt }
                 ],
-                temperature: this.llmConfig.temperature,
-                max_tokens: this.llmConfig.maxTokens,
+                temperature: this.temperature,
+                max_tokens: this.maxTokens,
             });
 
             let response = completion.choices[0].message.content.trim();
@@ -439,8 +452,8 @@ REMEMBER: Your response MUST follow the format with <think></think> tags. After 
                 },
                 llm: {
                     status: groqAvailable ? 'ok' : 'unavailable',
-                    provider: this.llmConfig.provider,
-                    model: this.llmConfig.model
+                    provider: this.provider,
+                    model: this.model
                 },
                 languages: Object.keys(this.multilingualService.getSupportedLanguages()),
                 lastUpdated: new Date().toISOString()

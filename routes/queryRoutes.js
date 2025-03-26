@@ -4,14 +4,14 @@
 const express = require('express');
 const { body } = require('express-validator');
 const rateLimit = require('express-rate-limit');
-const config = require('config');
+const configService = require('../utils/configService');
 const queryController = require('../controllers/queryController');
 const requestValidator = require('../middleware/requestValidator');
 
 const router = express.Router();
 
 // Rate limiting configuration
-const apiConfig = config.get('api.rateLimit');
+const apiConfig = configService.get('api.rateLimit');
 const limiter = rateLimit({
   windowMs: apiConfig.windowMs,
   max: apiConfig.max,

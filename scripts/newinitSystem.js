@@ -5,14 +5,14 @@
 require('dotenv').config();
 const path = require('path');
 const fs = require('fs').promises;
-const config = require('config');
+const configService = require('../utils/configService');
 const logger = require('../utils/logger');
 const GitaDocumentProcessor = require('../services/GitaProcessor');
 const VectorStore = require('../services/vectorStore');
 const RAGService = require('../services/ragService');
 
 // File paths
-const PDF_PATH = path.join(__dirname, '..', config.get('documents.pdfPath'));
+const PDF_PATH = path.join(__dirname, '..', configService.get('documents.pdfPath'));
 const PROCESSED_DATA_PATH = path.join(__dirname, '..', 'data', 'processed_gita.json');
 
 /**
@@ -58,7 +58,7 @@ const initSystem = async () => {
     
     // Check if processed data exists
     let nodes;
-    const useCache = config.get('documents.cacheEnabled');
+    const useCache = configService.get('documents.cacheEnabled');
     
     if (useCache) {
       logger.info('Attempting to load processed data from cache...');
@@ -195,3 +195,18 @@ const initSystem = async () => {
 
 // Run the initialization
 initSystem();
+
+// Run initialization if this script is executed directly
+if (require.main === module) {
+  initSystem()
+    .then(() => {
+      logger.info('Initialization script completed');
+      process.exit(0);
+    })
+    .catch((error) => {
+      logger.error(`Initialization script failed: ${error.message}`);
+      process.exit(1);
+    });
+}
+
+module.exports = initSystem;

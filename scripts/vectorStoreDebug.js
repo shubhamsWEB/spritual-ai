@@ -3,7 +3,8 @@
  * Run this to check the status of your vector database and diagnose issues
  */
 require('dotenv').config();
-const config = require('config');
+
+const configService = require('../utils/configService');
 const logger = require('../utils/logger');
 const VectorStore = require('../services/vectorStore');
 const EmbeddingService = require('../services/customEmbeddingService');
@@ -31,16 +32,15 @@ async function debugVectorStore() {
     
     // Check Qdrant configuration
     console.log('\n--- Qdrant Configuration ---');
-    const vectorConfig = config.get('vectorDB');
-    console.log(`Memory Mode: ${vectorConfig.memoryMode ? 'Enabled' : 'Disabled'}`);
-    console.log(`Collection Name: ${vectorConfig.collectionName}`);
-    console.log(`Dimensions: ${vectorConfig.dimensions}`);
-    console.log(`Distance Metric: ${vectorConfig.distance}`);
-    console.log(`Quantization: ${vectorConfig.quantization.enabled ? 'Enabled' : 'Disabled'}`);
+    console.log(`Memory Mode: ${configService.get('vectorDB.memoryMode') ? 'Enabled' : 'Disabled'}`);
+    console.log(`Collection Name: ${configService.get('vectorDB.collectionName')}`);
+    console.log(`Dimensions: ${configService.get('vectorDB.dimensions')}`);
+    console.log(`Distance Metric: ${configService.get('vectorDB.distance')}`);
+    console.log(`Quantization: ${configService.get('vectorDB.quantization.enabled') ? 'Enabled' : 'Disabled'}`);
     
     // 2. Check PDF file
     console.log('\n--- PDF File Check ---');
-    const pdfPath = path.join(__dirname, '..', config.get('documents.pdfPath'));
+    const pdfPath = path.join(__dirname, '..', configService.get('documents.pdfPath'));
     try {
       const pdfStats = await fs.stat(pdfPath);
       console.log(`✓ PDF file found: ${pdfPath}`);
@@ -100,8 +100,8 @@ async function debugVectorStore() {
       console.log(`  First 5 values: ${embedding.slice(0, 5).map(v => v.toFixed(6)).join(', ')}`);
       
       // Check dimensions
-      if (embedding.length !== vectorConfig.dimensions) {
-        console.log(`❌ Warning: Embedding dimensions (${embedding.length}) do not match vector store configuration (${vectorConfig.dimensions})`);
+      if (embedding.length !== configService.get('vectorDB.dimensions')) {
+        console.log(`❌ Warning: Embedding dimensions (${embedding.length}) do not match vector store configuration (${configService.get('vectorDB.dimensions')})`);
       }
     } catch (error) {
       console.log(`❌ Embedding service test failed: ${error.message}`);
@@ -118,7 +118,7 @@ async function debugVectorStore() {
       try {
         console.log('Checking collection status...');
         const info = await vectorStore.getCollectionInfo();
-        console.log(`✓ Collection exists: ${vectorConfig.collectionName}`);
+        console.log(`✓ Collection exists: ${configService.get('vectorDB.collectionName')}`);
         console.log(`  Points count: ${info.vectors_count}`);
         console.log(`  Dimensions: ${info.config?.params?.vectors?.size}`);
         console.log(`  Status: ${info.status}`);
@@ -170,10 +170,23 @@ async function debugVectorStore() {
     
     console.log('\n========== DEBUG COMPLETE ==========');
   } catch (error) {
-    console.error('Unhandled error during debugging:', error);
-    console.error(error.stack);
+    console.error('Error running debug tool:', error);
+    logger.error(`Vector store debug failed: ${error.message}`);
   }
 }
 
-// Run the debug function
+// Run if called directly
+if (require.main === module) {
+  debugVectorStore()
+    .then(() => {
+      console.log('\nDebug completed');
+      process.exit(0);
+    })
+    .catch(error => {
+      console.error('Debug process failed:', error);
+      process.exit(1);
+    });
+}
+
+module.exports = debugVectorStore;
 debugVectorStore();

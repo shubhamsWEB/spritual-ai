@@ -2,23 +2,21 @@
  * OpenAI-based embedding service
  */
 const axios = require('axios');
-const config = require('config');
+const configService = require('../utils/configService');
 const logger = require('../utils/logger');
 
 class EmbeddingService {
   constructor() {
-    // Get embedding config from config
-    const embeddingConfig = config.get('embedding') || {};
-    
+    // Get embedding config from configService
     this.apiKey = process.env.OPENAI_API_KEY;
     if (!this.apiKey) {
       logger.warn('OPENAI_API_KEY not found in environment variables. Embeddings will fail.');
     }
     
-    this.modelName = embeddingConfig.openaiModel || 'text-embedding-3-small';
-    this.dimensions = embeddingConfig.dimensions || 1536; // Default for text-embedding-3-small
+    this.modelName = configService.get('embedding.openaiModel');
+    this.dimensions = configService.get('embedding.dimensions');
     this.cache = new Map();
-    this.useCache = embeddingConfig.cache !== undefined ? embeddingConfig.cache : true;
+    this.useCache = configService.get('embedding.cache');
     this.initialized = !!this.apiKey;
     
     logger.info(`OpenAI Embedding service initialized with model: ${this.modelName}`);

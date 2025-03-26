@@ -5,12 +5,12 @@
 const fs = require('fs').promises;
 const path = require('path');
 const pdf = require('pdf-parse');
-const config = require('config');
+const configService = require('../utils/configService');
 const logger = require('../utils/logger');
 
 class DocumentProcessor {
   constructor(pdfPath = null) {
-    this.pdfPath = pdfPath || config.get('documents.pdfPath');
+    this.pdfPath = pdfPath || configService.get('documents.pdfPath');
     this.rawText = '';
     this.structuredDocs = [];
     this.nodes = [];
@@ -410,8 +410,8 @@ class DocumentProcessor {
       await this.cleanAndStructureText();
       
       // Get chunk settings from config
-      const chunkSize = config.get('rag.chunkSize') || 512;
-      const chunkOverlap = config.get('rag.chunkOverlap') || 50;
+      const chunkSize = configService.get('rag.chunkSize') || 512;
+      const chunkOverlap = configService.get('rag.chunkOverlap') || 50;
       
       // Process documents in batches to avoid memory issues
       const batchSize = 50; // Process 50 documents at a time

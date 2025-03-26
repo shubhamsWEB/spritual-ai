@@ -3,7 +3,6 @@
  */
 const axios = require('axios');
 const translate = require('@vitalets/google-translate-api');
-const config = require('config');
 const logger = require('../utils/logger');
 
 class MultilingualService {

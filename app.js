@@ -7,8 +7,7 @@ const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const config = require('config');
-
+const configService = require('./utils/configService');
 const logger = require('./utils/logger');
 const errorHandler = require('./utils/errorHandler.js');
 const routes = require('./routes');
@@ -22,7 +21,7 @@ app.use(cors());
 
 // Parse JSON bodies
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: false }));
 
 // Logging middleware
 if (process.env.NODE_ENV !== 'test') {
@@ -34,15 +33,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'ok',
-    uptime: process.uptime(),
-    timestamp: Date.now()
-  });
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // API routes
-app.use('/api', routes);
+const apiPrefix = configService.get('api.prefix');
+const apiVersion = configService.get('api.version');
+app.use(`${apiPrefix}/${apiVersion}`, routes);
 
 // Serve the main HTML file for client-side rendering
 app.get('/', (req, res) => {

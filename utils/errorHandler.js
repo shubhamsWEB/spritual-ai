@@ -3,7 +3,6 @@
  */
 const { StatusCodes } = require('http-status-codes');
 const logger = require('./logger');
-const config = require('config');
 
 // Get environment
 const isDevelopment = process.env.NODE_ENV === 'development';

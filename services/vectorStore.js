@@ -2,7 +2,7 @@
  * Vector store service for Qdrant integration
  */
 const { QdrantClient } = require('@qdrant/js-client-rest');
-const config = require('config');
+const configService = require('../utils/configService');
 const logger = require('../utils/logger');
 // const EmbeddingService = require('./embeddingService');
 const EmbeddingService = require('./openaiEmbeddingService');
@@ -13,24 +13,31 @@ class VectorStore {
    */
   constructor() {
     // Get configuration
-    const vectorConfig = config.get('vectorDB');
+    const memoryMode = configService.get('vectorDB.memoryMode');
+    const host = configService.get('vectorDB.host');
+    const port = configService.get('vectorDB.port');
+    const apiKey = configService.get('vectorDB.apiKey');
     
     // Initialize the client
-    if (vectorConfig.memoryMode) {
-      this.client = new QdrantClient({ url: 'https://e79688f5-8874-4791-8185-64c0d7587452.us-east4-0.gcp.cloud.qdrant.io', apiKey: vectorConfig.apiKey });
+    if (memoryMode) {
+      this.client = new QdrantClient({ url: 'https://e79688f5-8874-4791-8185-64c0d7587452.us-east4-0.gcp.cloud.qdrant.io', apiKey });
       logger.info('Initialized Qdrant client in memory mode');
     } else {
       this.client = new QdrantClient({
-        url: `http://${vectorConfig.host}:${vectorConfig.port}`,
-        apiKey: vectorConfig.apiKey
+        url: `http://${host}:${port}`,
+        apiKey
       });
-      logger.info(`Initialized Qdrant client at ${vectorConfig.host}:${vectorConfig.port}`);
+      logger.info(`Initialized Qdrant client at ${host}:${port}`);
     }
     
-    this.collectionName = vectorConfig.collectionName;
-    this.dimensions = vectorConfig.dimensions;
-    this.distance = vectorConfig.distance;
-    this.quantization = vectorConfig.quantization;
+    this.collectionName = configService.get('vectorDB.collectionName');
+    this.dimensions = configService.get('vectorDB.dimensions');
+    this.distance = configService.get('vectorDB.distance');
+    this.quantization = {
+      enabled: configService.get('vectorDB.quantization.enabled'),
+      type: configService.get('vectorDB.quantization.type'),
+      rescore: configService.get('vectorDB.quantization.rescore')
+    };
     
     // Initialize embedding service
     this.embeddingService = new EmbeddingService();

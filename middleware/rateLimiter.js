@@ -3,10 +3,7 @@
  */
 const rateLimit = require('express-rate-limit');
 const { StatusCodes } = require('http-status-codes');
-const config = require('config');
-
-// Get rate limit configuration
-const apiConfig = config.get('api.rateLimit');
+const configService = require('../utils/configService');
 
 /**
  * Creates a rate limiter middleware
@@ -15,8 +12,8 @@ const apiConfig = config.get('api.rateLimit');
  */
 const createRateLimiter = (options = {}) => {
   const defaultOptions = {
-    windowMs: apiConfig.windowMs, // Default window: 15 minutes
-    max: apiConfig.max, // Default limit: 100 requests per window
+    windowMs: configService.get('api.rateLimit.windowMs'), // Default window: 15 minutes
+    max: configService.get('api.rateLimit.max'), // Default limit: 100 requests per window
     standardHeaders: true, // Return rate limit info in the headers
     legacyHeaders: false, // Disable the X-RateLimit headers
     message: {
@@ -36,10 +33,4 @@ const createRateLimiter = (options = {}) => {
   return rateLimit(limiterOptions);
 };
 
-// Create default rate limiter
-const defaultRateLimiter = createRateLimiter();
-
-module.exports = {
-  createRateLimiter,
-  defaultRateLimiter
-};
+module.exports = createRateLimiter;

@@ -5,12 +5,12 @@
 const fs = require('fs').promises;
 const path = require('path');
 const pdf = require('pdf-parse');
-const config = require('config');
+const configService = require('../utils/configService');
 const logger = require('../utils/logger');
 
 class GitaDocumentProcessor {
   constructor(pdfPath = null) {
-    this.pdfPath = pdfPath || config.get('documents.pdfPath');
+    this.pdfPath = pdfPath || configService.get('documents.pdfPath');
     this.rawText = '';
     this.structuredDocs = [];
     this.nodes = [];

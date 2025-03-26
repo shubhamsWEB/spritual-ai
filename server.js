@@ -4,7 +4,7 @@
 const http = require('http');
 const app = require('./app');
 const logger = require('./utils/logger');
-const config = require('config');
+const configService = require('./utils/configService');
 
 // Check for required environment variables
 const requiredEnvVars = ['GROQ_API_KEY'];
@@ -16,10 +16,10 @@ if (missingEnvVars.length > 0) {
 }
 
 // If using external Qdrant and memoryMode is false
-if (!config.get('vectorDB.memoryMode') && 
+if (!configService.get('vectorDB.memoryMode') && 
     (!process.env.QDRANT_HOST || !process.env.QDRANT_PORT)) {
   logger.warn('Qdrant connection details missing but memoryMode is false');
-  logger.warn('Set memoryMode: true in config or provide QDRANT_HOST and QDRANT_PORT');
+  logger.warn('Set QDRANT_MEMORY_MODE=true in env or provide QDRANT_HOST and QDRANT_PORT');
 }
 
 // Normalize port
@@ -37,22 +37,24 @@ const normalizePort = (val) => {
   return false;
 };
 
-// Get port from environment or config
-const port = normalizePort(process.env.PORT || config.get('server.port') || 3000);
-app.set('port', port);
+// Get port from environment
+const port = normalizePort(configService.get('server.port'));
+const host = configService.get('server.host');
 
 // Create HTTP server
 const server = http.createServer(app);
 
-// Handle server errors
-const onError = (error) => {
+// Listen on provided port, on all network interfaces
+server.listen(port, host);
+
+server.on('error', (error) => {
   if (error.syscall !== 'listen') {
     throw error;
   }
 
   const bind = typeof port === 'string' ? `Pipe ${port}` : `Port ${port}`;
 
-  // Handle specific errors with friendly messages
+  // Handle specific listen errors with friendly messages
   switch (error.code) {
     case 'EACCES':
       logger.error(`${bind} requires elevated privileges`);
@@ -65,20 +67,15 @@ const onError = (error) => {
     default:
       throw error;
   }
-};
+});
 
-// Event listener for server "listening" event
-const onListening = () => {
+server.on('listening', () => {
   const addr = server.address();
   const bind = typeof addr === 'string' ? `pipe ${addr}` : `port ${addr.port}`;
   logger.info(`Server listening on ${bind}`);
-  logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
-};
+});
 
-// Listen on provided port
-server.listen(port);
-server.on('error', onError);
-server.on('listening', onListening);
+module.exports = server;
 
 // Handle unhandled rejections
 process.on('unhandledRejection', (err) => {

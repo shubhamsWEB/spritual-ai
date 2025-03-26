@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     try {
       // Send request to API
-      const response = await fetch('/api/query', {
+      const response = await fetch('/api/v1/query', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
