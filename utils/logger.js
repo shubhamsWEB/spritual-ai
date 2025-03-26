@@ -32,17 +32,21 @@ const consoleFormat = format.combine(
   })
 );
 
-// Create the logger
-const logger = createLogger({
-  level: loggingLevel,
-  format: logFormat,
-  defaultMeta: { service: 'spiritual-bot' },
-  transports: [
-    // Write logs to the console
-    new transports.Console({
-      format: consoleFormat
-    }),
-    // Write logs to a file
+// Determine if running in production or Vercel
+const isProduction = process.env.NODE_ENV === 'production';
+const isVercel = process.env.VERCEL === '1';
+
+// Configure transports
+const loggerTransports = [
+  // Always write logs to the console
+  new transports.Console({
+    format: consoleFormat
+  })
+];
+
+// Only add file transports when not in production and not on Vercel
+if (!isProduction && !isVercel) {
+  loggerTransports.push(
     new transports.File({ 
       filename: 'logs/error.log', 
       level: 'error' 
@@ -50,7 +54,15 @@ const logger = createLogger({
     new transports.File({ 
       filename: 'logs/combined.log' 
     })
-  ],
+  );
+}
+
+// Create the logger
+const logger = createLogger({
+  level: loggingLevel,
+  format: logFormat,
+  defaultMeta: { service: 'spiritual-bot' },
+  transports: loggerTransports,
   // Exit on error
   exitOnError: false
 });
@@ -60,16 +72,11 @@ logger.stream = {
   write: (message) => logger.http(message.trim())
 };
 
-// Add a shutdown function
+// Add a simplified shutdown function that doesn't depend on file transports
 logger.shutdown = () => {
   logger.info('Shutting down logger...');
   
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      logger.end();
-      resolve();
-    }, 500);
-  });
+  return Promise.resolve();
 };
 
 module.exports = logger;
