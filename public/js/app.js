@@ -90,8 +90,11 @@ document.addEventListener('DOMContentLoaded', function() {
       // Format source references
       const sourceRefs = [];
       if (data.data.sources && data.data.sources.length > 0) {
+        console.log("Sources received:", data.data.sources);
         data.data.sources.forEach(source => {
-          if (source.metadata && source.metadata.chapter) {
+          if (source.reference) {
+            sourceRefs.push(source.reference);
+          } else if (source.metadata && source.metadata.chapter) {
             if (source.metadata.verse) {
               sourceRefs.push(`Chapter ${source.metadata.chapter}, Verse ${source.metadata.verse}`);
             } else {
@@ -102,6 +105,8 @@ document.addEventListener('DOMContentLoaded', function() {
           }
         });
       }
+      
+      console.log("Formatted source references:", sourceRefs);
       
       // Display bot response
       addMessage(data.data.answer, 'bot', sourceRefs);

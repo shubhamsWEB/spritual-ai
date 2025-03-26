@@ -206,9 +206,17 @@ class RAGService {
             }
 
             // Format the response for display
+            const sources = this._formatSourcesFromResults(retrievalResults);
+            logger.info(`Formatted ${sources.length} sources for response`);
+            
+            // Log the first source for debugging
+            if (sources.length > 0) {
+                logger.info(`First source: ${JSON.stringify(sources[0])}`);
+            }
+            
             return {
                 answer: responseText,
-                sources: this._formatSourcesFromResults(retrievalResults)
+                sources: sources
             };
         } catch (error) {
             logger.error(`Error processing query: ${error.message}`);
@@ -275,6 +283,15 @@ class RAGService {
 
         return results.map(result => {
             const metadata = result.metadata || {};
+            
+            // Ensure metadata is properly structured
+            if (typeof metadata === 'string') {
+                try {
+                    metadata = JSON.parse(metadata);
+                } catch (e) {
+                    logger.warn(`Failed to parse metadata string: ${metadata}`);
+                }
+            }
 
             return {
                 text: result.content.substring(0, 200) + (result.content.length > 200 ? '...' : ''),
