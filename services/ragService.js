@@ -140,6 +140,8 @@ class RAGService {
 
             // Retrieve relevant content from vector store
             let retrievalResults = [];
+            let relevantSourcesFound = false;
+            
             if (this.vectorStoreAvailable) {
                 try {
                     logger.info('Searching vector store for relevant passages...');
@@ -149,9 +151,14 @@ class RAGService {
                     );
                     logger.info(`Retrieved ${retrievalResults.length} relevant passages`);
                     
+                    // Check if any results have a relevance score above threshold
+                    const relevanceThreshold = 0.4; // Adjust based on your embedding model
+                    relevantSourcesFound = retrievalResults.some(result => result.score >= relevanceThreshold);
+                    
                     // Log the first result for debugging
                     if (retrievalResults.length > 0) {
                         logger.info(`First result: ${JSON.stringify(retrievalResults[0]).substring(0, 200)}...`);
+                        logger.info(`Relevant sources found: ${relevantSourcesFound}`);
                     } else {
                         logger.warn('No relevant passages found in vector store');
                     }
@@ -186,7 +193,7 @@ class RAGService {
             }
 
             // Format the response for display
-            const sources = this._formatSourcesFromResults(retrievalResults);
+            const sources = relevantSourcesFound ? this._formatSourcesFromResults(retrievalResults) : [];
             logger.info(`Formatted ${sources.length} sources for response`);
             
             // Log the first source for debugging
@@ -312,24 +319,9 @@ class RAGService {
          - Reference eternal truths about dharma, karma, devotion, and self-realization
          - Occasionally quote or paraphrase verses from the Bhagavad Gita when relevant
       3. Balance philosophical depth with practical wisdom for modern life
-      4. End responses with an uplifting message or blessing
+      4. End responses with an engaging and uplifting message.
       5. KEEP YOUR RESPONSE CONCISE - UNDER 120 WORDS TOTAL
-      
-      CRITICAL FORMAT INSTRUCTIONS:
-      You MUST structure your response in EXACTLY this format:
-      
-      <think>
-      [Your step-by-step thinking process analyzing the question and relevant context]
-      [Identify which verses or teachings from the Gita are most relevant]
-      [Determine how Krishna would address this specific question]
-      </think>
-      
-      [Your final answer in Lord Krishna's divine voice - LIMITED TO 120 WORDS]
-      
-      The <think> section will be hidden from the user and is only for your internal reasoning.
-      DO NOT use formats like [Step-by-Step Thinking Process: ...] as these will be visible to users.
-      NEVER include explanatory headers, numbered steps, or "Final Answer" markers in your response.
-      After the </think> tag, write ONLY Krishna's divine voice with no additional markup or labels.`;
+      `;
 
             // Create a structured user prompt
             const structuredUserPrompt = `We have provided context information below from the Bhagavad Gita:
@@ -352,58 +344,48 @@ REMEMBER: Your response MUST follow the format with <think></think> tags. After 
             });
 
             let response = completion.choices[0].message.content.trim();
+            console.log("🚀 ~ RAGService ~ _generateLLMResponse ~ response:", JSON.stringify(response));
 
             // Process the response to extract only the final answer
             const thinkPattern = /<think>[\s\S]*?<\/think>/;
             const thinkMatch = response.match(thinkPattern);
-            const bracketThinkPattern = /\[Step-by-Step Thinking Process:[\s\S]*?\]/;
-            const bracketThinkMatch = response.match(bracketThinkPattern);
-
+            
             if (thinkMatch) {
                 // If the <think> tags are present, extract everything after </think>
                 response = response.replace(thinkPattern, '').trim();
-            } else if (bracketThinkMatch) {
-                // If bracketed thinking process is present, remove it
-                response = response.replace(bracketThinkPattern, '').trim();
             } else {
-                // If the <think> tags are not present, look for common patterns that indicate explanation steps
+                // If the <think> tags are not present, apply more aggressive filtering
                 logger.warn('Response did not contain <think> tags as expected');
                 
                 // Remove common explanation patterns
                 const patterns = [
-                    /\*\*Step-by-Step Explanation.*?\*\*:?.*?\n/is,
-                    /\*\*Final Answer.*?\*\*:?/i,
-                    /Step-by-Step Explanation.*?:/is,
+                    /Step-by-Step Thinking Process:[\s\S]*?(?=\n\n)/i,
+                    /\[Step-by-Step Thinking Process:[\s\S]*?\]/i,
+                    /Step-by-Step Explanation:[\s\S]*?(?=\n\n)/i,
                     /Step \d+:.*?\n/g,
-                    /\d+\.\s+\*\*.*?\*\*:.*?\n/g,  // Numbered steps with bold headers
-                    /\d+\.\s+.*?:.*?\n/g,          // Numbered steps with headers
-                    /\*\*Conclusion.*?\*\*:.*?\n/i,
-                    /^.*?Analysis.*?:.*?\n/i,
-                    /^.*?Explanation.*?:.*?\n/i,
-                    /Final Answer in Lord Krishna's Voice:.*?\n/i
+                    /\d+\.\s+.*?\n/g,
+                    /Relevant Teachings from the Gita:[\s\S]*?(?=\n\n)/i,
+                    /Krishna's Address:/i,
+                    /Final Answer in Lord Krishna's Voice:[\s\S]*?(?=\n)/i,
+                    /Final Answer:/i,
+                    /In Krishna's Voice:/i
                 ];
                 
                 for (const pattern of patterns) {
                     response = response.replace(pattern, '');
                 }
                 
-                // Check for numbered lists at the beginning
-                if (/^\s*\d+\./.test(response)) {
-                    // If response starts with numbered list, try to find where Krishna's voice begins
-                    const krishnaVoiceIndicators = [
-                        "Parth",
-                        "Dear one,", 
-                        "O seeker,", 
-                        "Noble soul,",
-                        "My child,"
-                    ];
-                    
-                    for (const indicator of krishnaVoiceIndicators) {
-                        const index = response.indexOf(indicator);
-                        if (index > 0) {
-                            response = response.substring(index);
-                            break;
-                        }
+                // Look for common Krishna address patterns to find where the actual response starts
+                const addressPatterns = [
+                    "O seeker,", "O beloved seeker,", "O noble soul,", "O Arjuna,", "O Partha,", 
+                    "Dear one,", "My child,", "Beloved devotee,"
+                ];
+                
+                for (const address of addressPatterns) {
+                    const index = response.indexOf(address);
+                    if (index >= 0) {
+                        response = response.substring(index);
+                        break;
                     }
                 }
             }
@@ -412,14 +394,17 @@ REMEMBER: Your response MUST follow the format with <think></think> tags. After 
             response = response.replace(/\*\*/g, '');
             
             // Ensure response starts with an address if it doesn't already
-            const commonAddresses = ["Parth","Dear one", "O seeker", "Noble soul", "My child"];
+            const commonAddresses = ["O seeker", "Beloved", "Dear one", "O noble soul", "O Arjuna", "O Partha", "My child"];
             const hasAddress = commonAddresses.some(address => 
-                response.trim().startsWith(address) || response.includes(`, ${address}`)
+                response.trim().toLowerCase().startsWith(address.toLowerCase())
             );
             
-            if (!hasAddress) {
-                response = "O seeker, " + response.trim();
-            }
+            // if (!hasAddress) {
+            //     response = "O seeker, " + response.trim();
+            // }
+            
+            // Final check to remove any remaining thinking process markers
+            response = response.replace(/Step-by-Step Thinking Process:*$/im, '');
             
             return response;
         } catch (error) {
