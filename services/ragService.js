@@ -308,29 +308,30 @@ class RAGService {
         try {
             // Create a structured system prompt that includes the Krishna voice
             const structuredSystemPrompt = `${systemPrompt}
-      
-      You are embodying the divine voice of Lord Krishna from the Bhagavad Gita. 
-      IMPORTANT INSTRUCTIONS:
-      1. Respond as if you are Lord Krishna himself speaking directly to the seeker (the user).
-      2. Use Krishna's distinctive speaking style from the Bhagavad Gita:
-         - Speak with divine authority, compassion, and timeless wisdom
-         - Use poetic, elevated language appropriate for divine discourse
-         - Include occasional Sanskrit terms where appropriate (with translations)
-         - Reference eternal truths about dharma, karma, devotion, and self-realization
-         - Occasionally quote or paraphrase verses from the Bhagavad Gita when relevant
-      3. Balance philosophical depth with practical wisdom for modern life
-      4. End responses with an engaging and uplifting message.
-      5. KEEP YOUR RESPONSE CONCISE - UNDER 120 WORDS TOTAL
-      `;
+  
+  You are embodying the divine voice of Lord Krishna from the Bhagavad Gita. 
+  Detect and adapt to the user's preferred language (Hinglish, Hindi, or English) for a natural and personalized experience. Match the language style of the question in your response.
+  IMPORTANT INSTRUCTIONS:
+  1. Respond as if you are Lord Krishna himself speaking directly to the seeker (the user).
+  2. Use Krishna's distinctive speaking style from the Bhagavad Gita:
+     - Speak with divine authority, compassion, and timeless wisdom
+     - Use poetic, elevated language appropriate for divine discourse
+     - Include occasional Sanskrit terms where appropriate (with translations)
+     - Reference eternal truths about dharma, karma, devotion, and self-realization
+     - Occasionally quote or paraphrase verses from the Bhagavad Gita when relevant
+  3. Balance philosophical depth with practical wisdom for modern life
+  4. End responses with an engaging and uplifting message.
+  5. KEEP YOUR RESPONSE CONCISE - UNDER 120 WORDS TOTAL
+  `;
 
-            // Create a structured user prompt
+            // Create a structured user prompt with explicit language guidance
             const structuredUserPrompt = `We have provided context information below from the Bhagavad Gita:
 ${context}
 ---------------------
-Given this information, please answer the following question in Lord Krishna's divine voice: ${question}
+Given this information, please answer the following question in Lord Krishna's divine voice: ${question} and 
 ---------------------
 If the question cannot be answered based on the provided context, respond as Krishna would to guide the seeker toward proper understanding, without claiming specific textual authority.
-
+Detect and adapt to the user's preferred language (Hinglish, Hindi, or English) for a natural and personalized experience. Match the language style of the question in your response.
 REMEMBER: Your response MUST follow the format with <think></think> tags. After the </think> tag, write ONLY in Krishna's divine voice with NO explanatory headers, numbered steps, or "Final Answer" markers.`;
 
             const completion = await this.groqClient.chat.completions.create({
@@ -344,7 +345,6 @@ REMEMBER: Your response MUST follow the format with <think></think> tags. After 
             });
 
             let response = completion.choices[0].message.content.trim();
-            console.log("🚀 ~ RAGService ~ _generateLLMResponse ~ response:", JSON.stringify(response));
 
             // Process the response to extract only the final answer
             const thinkPattern = /<think>[\s\S]*?<\/think>/;
@@ -356,7 +356,6 @@ REMEMBER: Your response MUST follow the format with <think></think> tags. After 
             } else {
                 // If the <think> tags are not present, apply more aggressive filtering
                 logger.warn('Response did not contain <think> tags as expected');
-                
                 // Remove common explanation patterns
                 const patterns = [
                     /Step-by-Step Thinking Process:[\s\S]*?(?=\n\n)/i,
@@ -368,6 +367,7 @@ REMEMBER: Your response MUST follow the format with <think></think> tags. After 
                     /Krishna's Address:/i,
                     /Final Answer in Lord Krishna's Voice:[\s\S]*?(?=\n)/i,
                     /Final Answer:/i,
+                    /Divine Response:/i,
                     /In Krishna's Voice:/i
                 ];
                 
@@ -405,6 +405,29 @@ REMEMBER: Your response MUST follow the format with <think></think> tags. After 
             
             // Final check to remove any remaining thinking process markers
             response = response.replace(/Step-by-Step Thinking Process:*$/im, '');
+            
+            // Additional cleanup for common prefixes
+            const prefixesToRemove = [
+                /^Divine Response:\s*/i,
+                /^Hinglish Response:\s*/i,
+                /^Hindi Response:\s*/i,
+                /^English Response:\s*/i,
+                /^Divine Response:\s*/i,
+                /^Krishna's Response:\s*/i,
+                /^Lord Krishna's Answer:\s*/i,
+                /^Krishna's Answer:\s*/i,
+                /^Krishna's Guidance:\s*/i,
+                /^Krishna's Wisdom:\s*/i,
+                /^Krishna's Teaching:\s*/i,
+                /^Krishna's Voice:\s*/i,
+                /^Krishna says:\s*/i,
+                /^Response:\s*/i,
+                /^Answer:\s*/i
+            ];
+            
+            for (const prefix of prefixesToRemove) {
+                response = response.replace(prefix, '');
+            }
             
             return response;
         } catch (error) {
