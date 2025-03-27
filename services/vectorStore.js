@@ -210,7 +210,7 @@ class VectorStore {
    * @param {number} limit Maximum number of results
    * @returns {Promise<Array>} Search results
    */
-  async search(query, limit = 5) {
+  async search(query, limit = 20) {
     try {
       logger.info(`Searching for: "${query}" (limit: ${limit})`);
 

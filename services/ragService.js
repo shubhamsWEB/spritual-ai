@@ -181,17 +181,6 @@ class RAGService {
 
             // Translate response back to original language if needed
             let responseText = llmResponse;
-            if (language !== 'en' && language !== 'sa') { // Don't translate Sanskrit
-                try {
-                    responseText = await this.multilingualService.translateFromEnglish(llmResponse, language);
-                    logger.info('Translated response back to original language');
-                } catch (error) {
-                    logger.error(`Response translation error: ${error.message}`);
-                    // Return original response if translation fails
-                    responseText = llmResponse;
-                }
-            }
-
             // Format the response for display
             const sources = relevantSourcesFound ? this._formatSourcesFromResults(retrievalResults) : [];
             logger.info(`Formatted ${sources.length} sources for response`);
@@ -321,17 +310,19 @@ class RAGService {
      - Occasionally quote or paraphrase verses from the Bhagavad Gita when relevant
   3. Balance philosophical depth with practical wisdom for modern life
   4. End responses with an engaging and uplifting message.
-  5. KEEP YOUR RESPONSE CONCISE - UNDER 120 WORDS TOTAL
+  5. KEEP YOUR RESPONSE CONCISE - UNDER 150 WORDS TOTAL.
+  6. If user asks about a specific verse, give the verse in (Sanskrit) and Translation (English) in the response.
   `;
 
             // Create a structured user prompt with explicit language guidance
             const structuredUserPrompt = `We have provided context information below from the Bhagavad Gita:
 ${context}
 ---------------------
-Given this information, please answer the following question in Lord Krishna's divine voice: ${question} and 
+Given this information, please answer the following question in Lord Krishna's divine voice: ${question}. 
 ---------------------
 If the question cannot be answered based on the provided context, respond as Krishna would to guide the seeker toward proper understanding, without claiming specific textual authority.
-Detect and adapt to the user's preferred language (Hinglish, Hindi, or English) for a natural and personalized experience. Match the language style of the question in your response.
+Give the verse in (Sanskrit) and Translation (English) in the response if user asks about a specific verse. Keep Verse and Translation in separate lines Separated by a new line.
+Give respose in English only.
 REMEMBER: Your response MUST follow the format with <think></think> tags. After the </think> tag, write ONLY in Krishna's divine voice with NO explanatory headers, numbered steps, or "Final Answer" markers.`;
 
             const completion = await this.groqClient.chat.completions.create({
@@ -394,15 +385,6 @@ REMEMBER: Your response MUST follow the format with <think></think> tags. After 
             response = response.replace(/\*\*/g, '');
             
             // Ensure response starts with an address if it doesn't already
-            const commonAddresses = ["O seeker", "Beloved", "Dear one", "O noble soul", "O Arjuna", "O Partha", "My child"];
-            const hasAddress = commonAddresses.some(address => 
-                response.trim().toLowerCase().startsWith(address.toLowerCase())
-            );
-            
-            // if (!hasAddress) {
-            //     response = "O seeker, " + response.trim();
-            // }
-            
             // Final check to remove any remaining thinking process markers
             response = response.replace(/Step-by-Step Thinking Process:*$/im, '');
             
