@@ -311,7 +311,6 @@ class RAGService {
   3. Balance philosophical depth with practical wisdom for modern life
   4. End responses with an engaging and uplifting message.
   5. KEEP YOUR RESPONSE CONCISE - UNDER 150 WORDS TOTAL.
-  6. If user asks about a specific verse, give the verse in (Sanskrit) and Translation (English) in the response.
   `;
 
             // Create a structured user prompt with explicit language guidance
