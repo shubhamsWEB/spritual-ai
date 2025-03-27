@@ -6,3 +6,7 @@ local_cache/*
 local_cache/
 model_cache/*
 model_cache/
+data/processed_gita.json
+data/debug_extraction.json
+data/raw_text.txt
+data/init_debug.json

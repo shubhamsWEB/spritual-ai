@@ -30,11 +30,14 @@ const configService = {
     host: () => process.env.QDRANT_HOST,
     port: () => process.env.QDRANT_PORT || 6333,
     apiKey: () => process.env.QDRANT_API_KEY,
+    batchSize: () => process.env.QDRANT_BATCH_SIZE || 10,
     memoryMode: () => false, // Always use cloud in all environments
-    collectionName: () => process.env.QDRANT_COLLECTION_NAME || 'bhagavad_gita',
+    collectionName: () => process.env.QDRANT_COLLECTION_NAME || 'bhagavad_gita_v2',
     dimensions: () => parseInt(process.env.VECTOR_DIMENSIONS || 1536),
     distance: () => process.env.VECTOR_DISTANCE || 'Cosine',
     size: () => parseInt(process.env.VECTOR_SIZE || 4),
+    debug: () => false,
+    maxRetries: () => parseInt(process.env.VECTOR_MAX_RETRIES || 3),
     quantization: {
       enabled: () => process.env.VECTOR_QUANTIZATION_ENABLED === 'true' || true,
       type: () => process.env.VECTOR_QUANTIZATION_TYPE || 'binary',
@@ -49,6 +52,9 @@ const configService = {
     dimensions: () => parseInt(process.env.EMBEDDING_DIMENSIONS || 1536),
     normalize: () => process.env.EMBEDDING_NORMALIZE === 'true' || true,
     cache: () => process.env.EMBEDDING_CACHE === 'true' || true,
+    retryCount: () => parseInt(process.env.EMBEDDING_RETRY_COUNT || 3),
+    retryDelay: () => parseInt(process.env.EMBEDDING_RETRY_DELAY || 1000),
+    batchSize: () => parseInt(process.env.EMBEDDING_BATCH_SIZE || 10),
   },
   
   // LLM configuration (Groq)
@@ -57,6 +63,7 @@ const configService = {
     model: () => process.env.LLM_MODEL || 'deepseek-r1-distill-llama-70b',
     temperature: () => parseFloat(process.env.LLM_TEMPERATURE || 0.7),
     maxTokens: () => parseInt(process.env.LLM_MAX_TOKENS || 2048),
+    maxRetries: () => parseInt(process.env.LLM_MAX_RETRIES || 3),
   },
   
   // RAG configuration
@@ -65,6 +72,8 @@ const configService = {
     timeout: () => parseInt(process.env.RAG_TIMEOUT || 30000), // 30 seconds
     chunkSize: () => parseInt(process.env.RAG_CHUNK_SIZE || 512),
     chunkOverlap: () => parseInt(process.env.RAG_CHUNK_OVERLAP || 50),
+    relevanceThreshold: () => parseFloat(process.env.RAG_RELEVANCE_THRESHOLD || 0.5),
+    debug: () => process.env.RAG_DEBUG === 'true' || false,
   },
   
   // Language support configuration
@@ -92,6 +101,7 @@ const configService = {
   get: function(path) {
     // Modified to handle both full section objects and specific properties
     const parts = path.split('.');
+    console.log("🚀 ~ parts:", parts);
     let current = this;
     
     // Navigate through the parts to find the requested config

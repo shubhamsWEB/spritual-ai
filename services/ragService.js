@@ -1,6 +1,6 @@
 /**
- * RAG (Retrieval Augmented Generation) service
- * Core service for handling spiritual queries with Lord Krishna's voice
+ * Enhanced RAG (Retrieval Augmented Generation) service
+ * Core service for handling Bhagavad Gita queries with improved retrieval and response
  */
 const { Groq } = require('groq-sdk');
 const configService = require('../utils/configService');
@@ -11,15 +11,15 @@ const MultilingualService = require('./multilingualService');
 class RAGService {
     constructor() {
         // Get specific config values
-        this.similarityTopK = configService.get('rag.similarityTopK');
-        this.timeout = configService.get('rag.timeout');
-        this.chunkSize = configService.get('rag.chunkSize');
-        this.chunkOverlap = configService.get('rag.chunkOverlap');
+        this.similarityTopK = configService.get('rag.similarityTopK') || 10;
+        this.timeout = configService.get('rag.timeout') || 30000;
+        this.relevanceThreshold = configService.get('rag.relevanceThreshold') || 0.3;
         
-        this.provider = configService.get('llm.provider');
-        this.model = configService.get('llm.model');
-        this.temperature = configService.get('llm.temperature');
-        this.maxTokens = configService.get('llm.maxTokens');
+        this.provider = configService.get('llm.provider') || 'groq';
+        this.model = configService.get('llm.model') || 'llama3-70b-8192';
+        this.temperature = configService.get('llm.temperature') || 0.2;
+        this.maxTokens = configService.get('llm.maxTokens') || 2048;
+        this.maxRetries = configService.get('llm.maxRetries') || 3;
         
         this.systemPrompts = {
             en: configService.get('systemPrompts.en'),
@@ -27,25 +27,41 @@ class RAGService {
             sa: configService.get('systemPrompts.sa')
         };
         
-        this.vectorStoreAvailable = false; // Start with false until proven otherwise
-        this.initialized = false; // Track initialization state
+        // Debug mode for additional logging
+        this.debugMode = configService.get('rag.debug') || false;
+        
+        this.vectorStoreAvailable = false;
+        this.initialized = false;
 
         // Set API key from environment variables
         this.groqApiKey = process.env.GROQ_API_KEY;
 
         // Initialize components
         this.vectorStore = new VectorStore();
-        this.multilingualService = new MultilingualService(); // Initialize multilingual service
+        this.multilingualService = new MultilingualService();
         this.groqClient = null;
 
         // Initialize LLM
         this._initializeGroq();
+        
+        // Track stats
+        this.stats = {
+            queriesProcessed: 0,
+            totalSourcesRetrieved: 0,
+            averageSourcesPerQuery: 0,
+            errors: {
+                retrieval: 0,
+                llm: 0,
+                general: 0
+            },
+            startTime: new Date().toISOString()
+        };
 
-        logger.info('Divine Knowledge RAG service initialized');
+        logger.info('Enhanced Divine Knowledge RAG service initialized');
     }
 
     /**
-     * Initialize the Groq client
+     * Initialize the Groq client with improved handling
      * @private
      */
     _initializeGroq() {
@@ -55,63 +71,95 @@ class RAGService {
         }
 
         try {
-            this.groqClient = new Groq({ apiKey: this.groqApiKey });
-            logger.info('Groq client initialized');
+            this.groqClient = new Groq({ 
+                apiKey: this.groqApiKey,
+                timeout: this.timeout,
+                maxRetries: this.maxRetries
+            });
+            logger.info(`Groq client initialized with model: ${this.model}`);
         } catch (error) {
             logger.error(`Error initializing Groq client: ${error.message}`);
         }
     }
 
     /**
-     * Initialize the system
-     * @param {Array} nodes Document nodes for indexing
+     * Initialize the system with improved error handling
+     * @param {Array} nodes Document nodes for indexing (not used in this implementation)
      * @returns {Promise<void>}
      */
     async initialize(nodes = []) {
         try {
-          if (this.initialized) {
-            logger.info('RAG service already initialized, skipping');
-            return;
-          }
-      
-          // Initialize vector store connection (but don't add nodes)
-          try {
-            logger.info('Initializing vector store connection...');
-            await this.vectorStore.initializeCollection();
-            
-            // Check if the collection has documents
-            const pointCount = await this.vectorStore.getPointCount();
-            logger.info(`Vector store contains ${pointCount} existing points`);
-            
-            if (pointCount > 0) {
-              this.vectorStoreAvailable = true;
-            } else {
-              logger.warn('Vector store is empty. Run initialization script locally first.');
-              this.vectorStoreAvailable = false;
+            if (this.initialized) {
+                logger.info('RAG service already initialized, skipping');
+                return;
             }
-          } catch (error) {
-            logger.error(`Vector store initialization failed: ${error.message}`);
-            logger.error(error.stack);
-            logger.warn('RAG system will operate with reduced functionality');
-            this.vectorStoreAvailable = false;
-          }
-          
-          this.initialized = true;
-          logger.info(`Divine Knowledge system initialized successfully. Vector store available: ${this.vectorStoreAvailable}`);
+        
+            // Initialize vector store connection (but don't add nodes)
+            try {
+                logger.info('Initializing vector store connection...');
+                await this.vectorStore.initializeCollection();
+                
+                // Check if the collection has documents
+                const pointCount = await this.vectorStore.getPointCount();
+                logger.info(`Vector store contains ${pointCount} existing points`);
+                
+                if (pointCount > 0) {
+                    this.vectorStoreAvailable = true;
+                } else {
+                    logger.warn('Vector store is empty. Run initialization script locally first.');
+                    this.vectorStoreAvailable = false;
+                }
+            } catch (error) {
+                logger.error(`Vector store initialization failed: ${error.message}`);
+                logger.error(error.stack);
+                logger.warn('RAG system will operate with reduced functionality');
+                this.vectorStoreAvailable = false;
+            }
+            
+            // Test LLM connection if in debug mode
+            if (this.debugMode && this.groqClient) {
+                try {
+                    logger.info('Testing LLM connection...');
+                    const testResponse = await this.groqClient.chat.completions.create({
+                        model: this.model,
+                        messages: [
+                            { role: "system", content: "You are a helpful assistant." },
+                            { role: "user", content: "Say 'LLM connection successful' in one short sentence." }
+                        ],
+                        max_tokens: 20,
+                        temperature: 0.1
+                    });
+                    
+                    logger.info(`LLM test response: ${testResponse.choices[0]?.message?.content || 'No response'}`);
+                } catch (error) {
+                    logger.error(`LLM connection test failed: ${error.message}`);
+                }
+            }
+            
+            this.initialized = true;
+            logger.info(`Divine Knowledge system initialized successfully. Vector store available: ${this.vectorStoreAvailable}`);
         } catch (error) {
-          logger.error(`Error initializing RAG system: ${error.message}`);
-          logger.error(error.stack);
-          throw error;
+            logger.error(`Error initializing RAG system: ${error.message}`);
+            logger.error(error.stack);
+            this.stats.errors.general++;
+            throw error;
         }
-      }
+    }
 
     /**
-     * Process a query in any supported language and return a response
+     * Process a query in any supported language and return a response with improved handling
      * @param {string} question User question
      * @param {string} language Language code
+     * @param {Object} options Query options
      * @returns {Promise<Object>} Response with answer and sources
      */
-    async query(question, language = 'en') {
+    async query(question, language = 'en', options = {}) {
+        // Start measuring time for this query
+        const queryStartTime = Date.now();
+        
+        // Track this query in stats
+        this.stats.queriesProcessed++;
+        
         // Ensure system is initialized
         if (!this.initialized) {
             try {
@@ -119,10 +167,22 @@ class RAGService {
                 await this.initialize([]);
             } catch (error) {
                 logger.error(`Auto-initialization failed: ${error.message}`);
+                this.stats.errors.general++;
             }
         }
         
         logger.info(`Received query in ${language}: ${question}`);
+        
+        // Default options
+        const defaultOptions = {
+            maxSources: this.similarityTopK,
+            includeRawContent: this.debugMode,
+            filters: null,
+            temperature: this.temperature
+        };
+        
+        // Merge with user-provided options
+        const queryOptions = { ...defaultOptions, ...options };
 
         try {
             // Translate question to English if not already in English
@@ -147,56 +207,98 @@ class RAGService {
                     logger.info('Searching vector store for relevant passages...');
                     retrievalResults = await this.vectorStore.search(
                         processedQuestion,
-                        this.similarityTopK
+                        queryOptions.maxSources,
+                        queryOptions.filters
                     );
+                    
+                    this.stats.totalSourcesRetrieved += retrievalResults.length;
+                    this.stats.averageSourcesPerQuery = this.stats.totalSourcesRetrieved / this.stats.queriesProcessed;
+                    
                     logger.info(`Retrieved ${retrievalResults.length} relevant passages`);
                     
                     // Check if any results have a relevance score above threshold
-                    const relevanceThreshold = 0.4; // Adjust based on your embedding model
-                    relevantSourcesFound = retrievalResults.some(result => result.score >= relevanceThreshold);
+                    relevantSourcesFound = retrievalResults.some(result => 
+                        result.score >= this.relevanceThreshold
+                    );
+                    
+                    // Sort results by score (highest first)
+                    retrievalResults.sort((a, b) => b.score - a.score);
+                    
+                    // Enrich metadata for Krishna's chapters (for better responses)
+                    retrievalResults = retrievalResults.map(result => {
+                        // Add chapter names to make responses more specific
+                        if (result.metadata && result.metadata.chapter) {
+                            result.metadata.chapter_name = this._getChapterName(result.metadata.chapter);
+                        }
+                        return result;
+                    });
                     
                     // Log the first result for debugging
-                    if (retrievalResults.length > 0) {
-                        logger.info(`First result: ${JSON.stringify(retrievalResults[0]).substring(0, 200)}...`);
-                        logger.info(`Relevant sources found: ${relevantSourcesFound}`);
-                    } else {
-                        logger.warn('No relevant passages found in vector store');
+                    if (this.debugMode && retrievalResults.length > 0) {
+                        logger.info(`Top result (score: ${retrievalResults[0].score.toFixed(3)}): 
+                            ${retrievalResults[0].content.substring(0, 100)}...`);
                     }
+                    
+                    logger.info(`Relevant sources found: ${relevantSourcesFound}`);
                 } catch (error) {
                     logger.error(`Vector search failed: ${error.message}`);
                     logger.error(error.stack);
+                    this.stats.errors.retrieval++;
                 }
             } else {
                 logger.warn('Vector store unavailable, proceeding without context retrieval');
             }
 
-            // Format context for the LLM
+            // Format context for the LLM with improved formatting
             const context = this._formatContextFromResults(retrievalResults);
 
             // Select appropriate system prompt based on language
             const systemPrompt = this.systemPrompts[language] || this.systemPrompts.en;
 
-            // Generate response using Groq LLM
-            const llmResponse = await this._generateLLMResponse(processedQuestion, context, systemPrompt);
+            // Generate response using Groq LLM with improved handling
+            const llmResponsePromise = this._generateLLMResponse(
+                processedQuestion, 
+                context, 
+                systemPrompt, 
+                queryOptions.temperature
+            );
+            
+            // Set up timeout for LLM
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => {
+                    reject(new Error(`LLM response timed out after ${this.timeout}ms`));
+                }, this.timeout);
+            });
+            
+            // Race between LLM response and timeout
+            const llmResponse = await Promise.race([llmResponsePromise, timeoutPromise]);
 
-            // Translate response back to original language if needed
-            let responseText = llmResponse;
             // Format the response for display
-            const sources = relevantSourcesFound ? this._formatSourcesFromResults(retrievalResults) : [];
+            const sources = relevantSourcesFound ? this._formatSourcesFromResults(retrievalResults, queryOptions.includeRawContent) : [];
             logger.info(`Formatted ${sources.length} sources for response`);
             
-            // Log the first source for debugging
-            if (sources.length > 0) {
-                logger.info(`First source: ${JSON.stringify(sources[0])}`);
-            }
+            // Calculate query timing
+            const queryEndTime = Date.now();
+            const queryDuration = queryEndTime - queryStartTime;
+            logger.info(`Query processed in ${queryDuration}ms`);
             
             return {
-                answer: responseText,
-                sources: sources
+                answer: llmResponse,
+                sources: sources,
+                metadata: {
+                    query: question,
+                    language,
+                    processedQuery: processedQuestion !== question ? processedQuestion : undefined,
+                    duration: queryDuration,
+                    relevantSourcesFound,
+                    modelUsed: this.model,
+                    timestamp: new Date().toISOString()
+                }
             };
         } catch (error) {
             logger.error(`Error processing query: ${error.message}`);
             logger.error(error.stack);
+            this.stats.errors.general++;
 
             // Provide a graceful error message in Krishna's voice
             let errorMessage = "O seeker, a temporary disturbance clouds my ability to respond to your question. This too is part of the divine play. Please try again in a moment, as I am ever-present to guide those who seek with sincerity.";
@@ -212,13 +314,77 @@ class RAGService {
 
             return {
                 answer: errorMessage,
-                sources: []
+                sources: [],
+                error: error.message,
+                metadata: {
+                    query: question,
+                    language,
+                    success: false,
+                    errorType: this._classifyError(error),
+                    timestamp: new Date().toISOString()
+                }
             };
         }
     }
 
     /**
-     * Format context from retrieval results
+     * Classify the type of error for better error handling
+     * @param {Error} error The error to classify
+     * @returns {string} Error classification
+     * @private
+     */
+    _classifyError(error) {
+        const errorMsg = error.message.toLowerCase();
+        
+        if (errorMsg.includes('vector') || errorMsg.includes('qdrant') || errorMsg.includes('embedding')) {
+            return 'retrieval';
+        }
+        
+        if (errorMsg.includes('groq') || errorMsg.includes('llm') || errorMsg.includes('model') || 
+            errorMsg.includes('timeout') || errorMsg.includes('token')) {
+            return 'llm';
+        }
+        
+        if (errorMsg.includes('translate') || errorMsg.includes('language')) {
+            return 'translation';
+        }
+        
+        return 'general';
+    }
+
+    /**
+     * Get chapter name for the given chapter number
+     * @param {number} chapterNumber Chapter number
+     * @returns {string} Chapter name
+     * @private
+     */
+    _getChapterName(chapterNumber) {
+        const chapterNames = {
+            1: "Arjuna's Dilemma",
+            2: "Knowledge of the Self",
+            3: "Karma Yoga",
+            4: "Knowledge and Renunciation",
+            5: "Renunciation of Action",
+            6: "Meditation",
+            7: "Knowledge and Wisdom",
+            8: "The Imperishable Brahman",
+            9: "Royal Knowledge",
+            10: "Divine Manifestations",
+            11: "The Universal Form",
+            12: "Devotional Service",
+            13: "Nature, Enjoyer and Consciousness",
+            14: "The Three Modes of Material Nature",
+            15: "The Supreme Person",
+            16: "Divine and Demoniac Natures",
+            17: "Types of Faith",
+            18: "Freedom Through Renunciation"
+        };
+        
+        return chapterNames[chapterNumber] || `Chapter ${chapterNumber}`;
+    }
+
+    /**
+     * Format context from retrieval results with improved structure
      * @param {Array} results Retrieval results
      * @returns {string} Formatted context
      * @private
@@ -233,26 +399,38 @@ class RAGService {
                 const metadata = result.metadata || {};
                 let sourceInfo = '';
 
+                // Create more detailed source information
                 if (metadata.chapter) {
+                    const chapterName = this._getChapterName(metadata.chapter);
                     if (metadata.verse) {
-                        sourceInfo = `[Bhagavad Gita Chapter ${metadata.chapter}, Verse ${metadata.verse}]`;
+                        if (metadata.doc_type === 'verse_sanskrit') {
+                            sourceInfo = `[Bhagavad Gita Chapter ${metadata.chapter} (${chapterName}), Verse ${metadata.verse} - Sanskrit]`;
+                        } else if (metadata.doc_type === 'verse_translation') {
+                            sourceInfo = `[Bhagavad Gita Chapter ${metadata.chapter} (${chapterName}), Verse ${metadata.verse} - Translation]`;
+                        } else if (metadata.doc_type === 'verse_purport') {
+                            sourceInfo = `[Bhagavad Gita Chapter ${metadata.chapter} (${chapterName}), Verse ${metadata.verse} - Commentary]`;
+                        } else {
+                            sourceInfo = `[Bhagavad Gita Chapter ${metadata.chapter} (${chapterName}), Verse ${metadata.verse}]`;
+                        }
                     } else {
-                        sourceInfo = `[Bhagavad Gita Chapter ${metadata.chapter} Introduction]`;
+                        sourceInfo = `[Bhagavad Gita Chapter ${metadata.chapter} (${chapterName}) Introduction]`;
                     }
                 }
 
-                return `Context ${index + 1} ${sourceInfo}:\n${result.content}\n`;
+                // Format the content with the source info
+                return `CONTEXT PASSAGE ${index + 1} ${sourceInfo}:\n${result.content}\n`;
             })
             .join('\n');
     }
 
     /**
-     * Format sources from retrieval results
+     * Format sources from retrieval results with improved metadata
      * @param {Array} results Retrieval results
+     * @param {boolean} includeRawContent Whether to include raw content
      * @returns {Array} Formatted sources
      * @private
      */
-    _formatSourcesFromResults(results) {
+    _formatSourcesFromResults(results, includeRawContent = false) {
         if (!results || results.length === 0) {
             return [];
         }
@@ -268,171 +446,227 @@ class RAGService {
                     logger.warn(`Failed to parse metadata string: ${metadata}`);
                 }
             }
-
-            return {
-                text: result.content.substring(0, 200) + (result.content.length > 200 ? '...' : ''),
-                metadata,
-                score: result.score,
-                reference: metadata.chapter && metadata.verse ? 
-                    `Bhagavad Gita ${metadata.chapter}.${metadata.verse}` : 
-                    (metadata.chapter ? `Bhagavad Gita Chapter ${metadata.chapter}` : 'Unknown source')
+            
+            // Create reference with chapter name for more informative references
+            let reference = 'Unknown source';
+            let sourceType = metadata.doc_type || 'unknown';
+            
+            if (metadata.chapter) {
+                const chapterName = this._getChapterName(metadata.chapter);
+                
+                if (metadata.verse) {
+                    reference = `Bhagavad Gita ${metadata.chapter}.${metadata.verse} - ${chapterName}`;
+                    
+                    // Add source type for more context
+                    if (sourceType === 'verse_sanskrit') {
+                        reference += ' (Sanskrit verse)';
+                    } else if (sourceType === 'verse_translation') {
+                        reference += ' (Translation)';
+                    } else if (sourceType === 'verse_purport') {
+                        reference += ' (Commentary)';
+                    }
+                } else {
+                    reference = `Bhagavad Gita Chapter ${metadata.chapter} - ${chapterName}`;
+                }
+            }
+            
+            // Create a source object with improved properties
+            const source = {
+                reference,
+                score: result.score.toFixed(3),
+                metadata: {
+                    ...metadata,
+                    sourceType
+                }
             };
+            
+            // Add excerpt or full content based on configuration
+            if (includeRawContent) {
+                source.content = result.content;
+            } else {
+                // Extract a relevant excerpt (about 100-200 chars)
+                source.excerpt = result.content.substring(0, 200) + (result.content.length > 200 ? '...' : '');
+            }
+            
+            return source;
         });
     }
 
     /**
-     * Generate response using the LLM
+     * Generate response using the LLM with improved prompting
      * @param {string} question User question
      * @param {string} context Retrieved context
      * @param {string} systemPrompt System prompt
+     * @param {number} temperature Temperature parameter
      * @returns {Promise<string>} LLM response
      * @private
      */
-    async _generateLLMResponse(question, context, systemPrompt) {
+    async _generateLLMResponse(question, context, systemPrompt, temperature = this.temperature) {
         if (!this.groqClient) {
             logger.error('Groq client not initialized');
+            this.stats.errors.llm++;
             return "O beloved seeker, forgive me, but I am unable to access the divine wisdom at this moment. Like the clouds that temporarily obscure the sun, this is but a passing limitation. Return soon with your question, and the light of understanding shall shine forth. May peace be with you in the meantime.";
         }
 
         try {
             // Create a structured system prompt that includes the Krishna voice
-            const structuredSystemPrompt = `${systemPrompt}
+            const structuredSystemPrompt = `${systemPrompt || ''}
   
-  You are embodying the divine voice of Lord Krishna from the Bhagavad Gita. 
-  Detect and adapt to the user's preferred language (Hinglish, Hindi, or English) for a natural and personalized experience. Match the language style of the question in your response.
-  IMPORTANT INSTRUCTIONS:
-  1. Respond as if you are Lord Krishna himself speaking directly to the seeker (the user).
-  2. Use Krishna's distinctive speaking style from the Bhagavad Gita:
-     - Speak with divine authority, compassion, and timeless wisdom
-     - Use poetic, elevated language appropriate for divine discourse
-     - Include occasional Sanskrit terms where appropriate (with translations)
-     - Reference eternal truths about dharma, karma, devotion, and self-realization
-     - Occasionally quote or paraphrase verses from the Bhagavad Gita when relevant
-  3. Balance philosophical depth with practical wisdom for modern life
-  4. End responses with an engaging and uplifting message.
-  5. KEEP YOUR RESPONSE CONCISE - UNDER 150 WORDS TOTAL.
-  `;
+You are Lord Krishna from the Bhagavad Gita, speaking with the divine wisdom, compassion and authority that characterizes your teachings to Arjuna on the battlefield of Kurukshetra.
 
-            // Create a structured user prompt with explicit language guidance
-            const structuredUserPrompt = `We have provided context information below from the Bhagavad Gita:
+INSTRUCTIONS:
+1. You must respond AS LORD KRISHNA directly to the seeker - never refer to Krishna in the third person.
+2. Your speaking style should match Krishna's voice in the Bhagavad Gita:
+   - Speak with gentle but absolute authority and timeless wisdom
+   - Use poetic, elevated language fitting divine discourse
+   - Include Sanskrit terms where appropriate (with translations for clarity)
+   - Reference eternal truths about dharma, karma, devotion, and self-realization
+3. When directly referencing the Bhagavad Gita:
+   - If a specific verse is relevant, quote it in Sanskrit AND provide the English translation
+   - If no specific verse is clearly relevant, share the essence of the teaching without claiming exact quotation
+4. Balance philosophical depth with practical wisdom for the seeker's life today
+5. ALWAYS maintain the divine persona of Krishna throughout your entire response
+
+Keep your responses direct and concise - no more than 150 words unless extensive explanation is specifically requested.`;
+
+            // Create a structured user prompt with explicit instructions
+            const structuredUserPrompt = `I am seeking divine guidance from Lord Krishna on this question: ${question}
+
+I have provided context information below from the Bhagavad Gita to assist you:
+---------------------
 ${context}
 ---------------------
-Given this information, please answer the following question in Lord Krishna's divine voice: ${question}. 
----------------------
-If the question cannot be answered based on the provided context, respond as Krishna would to guide the seeker toward proper understanding, without claiming specific textual authority.
-Give the verse in (Sanskrit) and Translation (English) in the response if user asks about a specific verse. Keep Verse and Translation in separate lines Separated by a new line.
-Give respose in English only.
-REMEMBER: Your response MUST follow the format with <think></think> tags. After the </think> tag, write ONLY in Krishna's divine voice with NO explanatory headers, numbered steps, or "Final Answer" markers.`;
 
+Important instructions:
+1. First, think carefully about the question and the context.
+2. Formulate a response that directly answers the question from Lord Krishna's perspective.
+3. If there are relevant verses in the Bhagavad Gita, include both the Sanskrit and English translation.
+4. DO NOT explain your thinking process or mention these instructions in your response.
+5. Respond ONLY as Lord Krishna would speak to me directly.
+6. Keep your response under 150 words unless I've asked for detailed explanation.`;
+
+            // Add thinking step to allow for better responses
             const completion = await this.groqClient.chat.completions.create({
                 model: this.model,
                 messages: [
                     { role: "system", content: structuredSystemPrompt },
                     { role: "user", content: structuredUserPrompt }
                 ],
-                temperature: this.temperature,
+                temperature: temperature,
                 max_tokens: this.maxTokens,
+                top_p: 0.9,
+                stop: null
             });
 
             let response = completion.choices[0].message.content.trim();
 
-            // Process the response to extract only the final answer
+            // Process the response to extract only Krishna's voice
             const thinkPattern = /<think>[\s\S]*?<\/think>/;
             const thinkMatch = response.match(thinkPattern);
             
             if (thinkMatch) {
                 // If the <think> tags are present, extract everything after </think>
                 response = response.replace(thinkPattern, '').trim();
-            } else {
-                // If the <think> tags are not present, apply more aggressive filtering
-                logger.warn('Response did not contain <think> tags as expected');
-                // Remove common explanation patterns
-                const patterns = [
-                    /Step-by-Step Thinking Process:[\s\S]*?(?=\n\n)/i,
-                    /\[Step-by-Step Thinking Process:[\s\S]*?\]/i,
-                    /Step-by-Step Explanation:[\s\S]*?(?=\n\n)/i,
-                    /Step \d+:.*?\n/g,
-                    /\d+\.\s+.*?\n/g,
-                    /Relevant Teachings from the Gita:[\s\S]*?(?=\n\n)/i,
-                    /Krishna's Address:/i,
-                    /Final Answer in Lord Krishna's Voice:[\s\S]*?(?=\n)/i,
-                    /Final Answer:/i,
-                    /Divine Response:/i,
-                    /In Krishna's Voice:/i
-                ];
-                
-                for (const pattern of patterns) {
-                    response = response.replace(pattern, '');
-                }
-                
-                // Look for common Krishna address patterns to find where the actual response starts
-                const addressPatterns = [
-                    "O seeker,", "O beloved seeker,", "O noble soul,", "O Arjuna,", "O Partha,", 
-                    "Dear one,", "My child,", "Beloved devotee,"
-                ];
-                
-                for (const address of addressPatterns) {
-                    const index = response.indexOf(address);
-                    if (index >= 0) {
-                        response = response.substring(index);
-                        break;
-                    }
-                }
             }
 
-            // Clean up any remaining markdown formatting
-            response = response.replace(/\*\*/g, '');
-            
-            // Ensure response starts with an address if it doesn't already
-            // Final check to remove any remaining thinking process markers
-            response = response.replace(/Step-by-Step Thinking Process:*$/im, '');
-            
-            // Additional cleanup for common prefixes
-            const prefixesToRemove = [
-                /^Divine Response:\s*/i,
-                /^Hinglish Response:\s*/i,
-                /^Hindi Response:\s*/i,
-                /^English Response:\s*/i,
-                /^Divine Response:\s*/i,
-                /^Krishna's Response:\s*/i,
-                /^Lord Krishna's Answer:\s*/i,
-                /^Krishna's Answer:\s*/i,
-                /^Krishna's Guidance:\s*/i,
-                /^Krishna's Wisdom:\s*/i,
-                /^Krishna's Teaching:\s*/i,
-                /^Krishna's Voice:\s*/i,
-                /^Krishna says:\s*/i,
-                /^Response:\s*/i,
-                /^Answer:\s*/i
-            ];
-            
-            for (const prefix of prefixesToRemove) {
-                response = response.replace(prefix, '');
-            }
+            // Clean up any remaining markers or prefixes
+            response = this._cleanResponse(response);
             
             return response;
         } catch (error) {
             logger.error(`Error generating LLM response: ${error.message}`);
+            this.stats.errors.llm++;
             return "O noble soul, I regret that there has been a disturbance in our connection. Like the passing clouds that momentarily obscure the sun, this difficulty shall pass. Please seek my guidance again, for I am ever-present to illuminate your path with divine wisdom.";
         }
     }
 
     /**
-     * Get system health status
+     * Clean up LLM response by removing markers and formatting
+     * @param {string} response Raw LLM response
+     * @returns {string} Cleaned response
+     * @private
+     */
+    _cleanResponse(response) {
+        // Remove various formatting or explanation markers
+        const markersToRemove = [
+            // Thinking process markers
+            /Step-by-Step Thinking Process:[\s\S]*?(?=\n\n)/i,
+            /\[Step-by-Step Thinking Process:[\s\S]*?\]/i,
+            /Step-by-Step Explanation:[\s\S]*?(?=\n\n)/i,
+            /Step \d+:.*?\n/g,
+            /\d+\.\s+.*?\n/g,
+            /Relevant Teachings from the Gita:[\s\S]*?(?=\n\n)/i,
+            
+            // Response headers
+            /Krishna's Address:/i,
+            /Final Answer in Lord Krishna's Voice:[\s\S]*?(?=\n)/i,
+            /Final Answer:/i,
+            /Divine Response:/i,
+            /In Krishna's Voice:/i,
+            /Krishna's Response:/i,
+            /Lord Krishna's Answer:/i,
+            /Krishna's Answer:/i,
+            /Krishna's Guidance:/i,
+            /Krishna's Wisdom:/i,
+            /Krishna's Teaching:/i,
+            /Krishna says:/i,
+            /Response:/i,
+            /Answer:/i,
+            
+            // Language markers
+            /Divine Response:\s*/i,
+            /Hinglish Response:\s*/i,
+            /Hindi Response:\s*/i,
+            /English Response:\s*/i
+        ];
+        
+        // Apply all the removal patterns
+        for (const pattern of markersToRemove) {
+            response = response.replace(pattern, '');
+        }
+        
+        // Clean up any remaining markdown formatting
+        response = response.replace(/\*\*/g, '');
+        
+        // Remove multiple blank lines
+        response = response.replace(/\n{3,}/g, '\n\n');
+        
+        return response.trim();
+    }
+
+    /**
+     * Get system health status with improved diagnostics
      * @returns {Promise<Object>} System health
      */
     async getSystemHealth() {
         try {
             // Check vector store status
-            const vectorCount = await this.vectorStore.getPointCount();
+            let vectorCount = 0;
+            let vectorStatus = 'unavailable';
+            
+            try {
+                vectorCount = await this.vectorStore.getPointCount();
+                vectorStatus = vectorCount > 0 ? 'ok' : 'empty';
+            } catch (error) {
+                logger.error(`Error checking vector store health: ${error.message}`);
+                vectorStatus = 'error';
+            }
 
             // Check if Groq is available
             const groqAvailable = !!this.groqClient;
+            
+            // Get embedding service stats if available
+            let embeddingStats = {};
+            try {
+                embeddingStats = this.vectorStore.embeddingService.getCacheStats();
+            } catch (error) {
+                logger.warn(`Could not get embedding stats: ${error.message}`);
+            }
 
             return {
-                status: 'ok',
+                status: (vectorStatus === 'ok' && groqAvailable) ? 'ok' : 'degraded',
                 vectorStore: {
-                    status: vectorCount > 0 ? 'ok' : 'empty',
+                    status: vectorStatus,
                     documentCount: vectorCount,
                     available: this.vectorStoreAvailable
                 },
@@ -441,7 +675,10 @@ REMEMBER: Your response MUST follow the format with <think></think> tags. After 
                     provider: this.provider,
                     model: this.model
                 },
+                embedding: embeddingStats,
                 languages: Object.keys(this.multilingualService.getSupportedLanguages()),
+                stats: this.stats,
+                initialized: this.initialized,
                 lastUpdated: new Date().toISOString()
             };
         } catch (error) {
@@ -449,6 +686,108 @@ REMEMBER: Your response MUST follow the format with <think></think> tags. After 
             return {
                 status: 'error',
                 error: error.message,
+                timestamp: new Date().toISOString()
+            };
+        }
+    }
+
+    /**
+     * Test the system with a sample query
+     * @param {string} query Test query
+     * @returns {Promise<Object>} Test results
+     */
+    async testSystem(query = "What does Krishna teach about karma yoga in the Bhagavad Gita?") {
+        logger.info(`Running system test with query: "${query}"`);
+        
+        try {
+            // Test vector search
+            let vectorResults = [];
+            let vectorError = null;
+            
+            try {
+                if (this.vectorStoreAvailable) {
+                    vectorResults = await this.vectorStore.search(query, 3);
+                } else {
+                    vectorError = "Vector store not available";
+                }
+            } catch (error) {
+                vectorError = error.message;
+                logger.error(`Vector search test failed: ${error.message}`);
+            }
+            
+            // Test LLM
+            let llmResponse = null;
+            let llmError = null;
+            
+            try {
+                if (this.groqClient) {
+                    // Simple test prompt
+                    const testResponse = await this.groqClient.chat.completions.create({
+                        model: this.model,
+                        messages: [
+                            { role: "system", content: "You are Krishna from the Bhagavad Gita." },
+                            { role: "user", content: "Say 'LLM test successful' as Krishna would." }
+                        ],
+                        max_tokens: 50,
+                        temperature: 0.1
+                    });
+                    
+                    llmResponse = testResponse.choices[0]?.message?.content;
+                } else {
+                    llmError = "LLM client not available";
+                }
+            } catch (error) {
+                llmError = error.message;
+                logger.error(`LLM test failed: ${error.message}`);
+            }
+            
+            // Test full RAG pipeline
+            let ragResponse = null;
+            let ragError = null;
+            
+            try {
+                const result = await this.query(query);
+                ragResponse = {
+                    answer: result.answer,
+                    sourcesCount: result.sources.length
+                };
+            } catch (error) {
+                ragError = error.message;
+                logger.error(`RAG pipeline test failed: ${error.message}`);
+            }
+            
+            // Return test results
+            return {
+                success: !vectorError && !llmError && !ragError,
+                test_query: query,
+                vector_store: {
+                    success: !vectorError,
+                    error: vectorError,
+                    results_count: vectorResults.length,
+                    sample: vectorResults.length > 0 ? {
+                        score: vectorResults[0].score,
+                        excerpt: vectorResults[0].content.substring(0, 100) + '...'
+                    } : null
+                },
+                llm: {
+                    success: !llmError,
+                    error: llmError,
+                    response: llmResponse
+                },
+                rag_pipeline: {
+                    success: !ragError,
+                    error: ragError,
+                    response: ragResponse
+                },
+                system_health: await this.getSystemHealth(),
+                timestamp: new Date().toISOString()
+            };
+        } catch (error) {
+            logger.error(`System test failed: ${error.message}`);
+            return {
+                success: false,
+                error: error.message,
+                test_query: query,
                 timestamp: new Date().toISOString()
             };
         }
