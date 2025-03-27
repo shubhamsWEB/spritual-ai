@@ -60,6 +60,36 @@
       flex-direction: column;
     }
     
+    /* Start Chat Button Styles */
+    .start-chat-container {
+      display: flex;
+      justify-content: center;
+      margin: 40px 0;
+    }
+    
+    #start-chat-button {
+      padding: 15px 30px;
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1.2rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    #start-chat-button:hover {
+      background-color: var(--primary-dark);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    #start-chat-button:active {
+      transform: translateY(0);
+    }
+    
     .language-selector {
       display: flex;
       justify-content: flex-end;
@@ -90,6 +120,7 @@
       border-radius: 10px;
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
       overflow: hidden;
+      display: none; /* Initially hide the chat container */
     }
     
     #chat-messages {
@@ -231,6 +262,119 @@
       border-top: 1px solid var(--border-color);
     }
     
+    /* Health Check Panel Styles */
+    .health-panel {
+      margin-bottom: 20px;
+      background-color: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    
+    .health-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 20px;
+      background-color: var(--secondary-color);
+      color: white;
+    }
+    
+    .health-header h2 {
+      font-size: 1.2rem;
+      margin: 0;
+    }
+    
+    .health-status {
+      display: flex;
+      align-items: center;
+    }
+    
+    .status-indicator {
+      height: 12px;
+      width: 12px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    
+    .status-ok {
+      background-color: #4CAF50;
+    }
+    
+    .status-degraded {
+      background-color: #FFC107;
+    }
+    
+    .status-error {
+      background-color: #F44336;
+    }
+    
+    .health-content {
+      padding: 15px 20px;
+      display: none;
+    }
+    
+    .health-content.active {
+      display: block;
+    }
+    
+    .health-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 15px;
+      margin-top: 15px;
+    }
+    
+    .health-card {
+      background-color: var(--light-color);
+      border-radius: 8px;
+      padding: 15px;
+      border-left: 4px solid var(--primary-color);
+    }
+    
+    .health-card h3 {
+      font-size: 1rem;
+      margin-bottom: 10px;
+      color: var(--secondary-color);
+    }
+    
+    .health-card p {
+      margin: 5px 0;
+      font-size: 0.9rem;
+    }
+    
+    .health-toggle {
+      background: none;
+      border: 1px solid white;
+      border-radius: 5px;
+      padding: 5px 10px;
+      color: white;
+      cursor: pointer;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      margin-left: 10px;
+    }
+    
+    .health-toggle:hover {
+      text-decoration: underline;
+    }
+    
+    .refresh-button {
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      border-radius: 5px;
+      padding: 8px 15px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      margin-top: 15px;
+    }
+    
+    .refresh-button:hover {
+      background-color: var(--primary-dark);
+    }
+    
     /* Responsiveness */
     @media (max-width: 768px) {
       header h1 {
@@ -244,6 +388,10 @@
       .message {
         max-width: 90%;
       }
+      
+      .health-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -255,13 +403,48 @@
     </header>
     
     <main>
-      <div class="language-selector">
-        <label for="language">Choose language:</label>
-        <select id="language">
-          <option value="en">English</option>
-          <option value="hi">हिंदी (Hindi)</option>
-          <option value="sa">संस्कृतम् (Sanskrit)</option>
-        </select>
+      <!-- Health Check Panel -->
+      <div class="health-panel">
+        <div class="health-header">
+          <h2>System Status</h2>
+          <div class="health-status">
+            <div id="status-indicator" class="status-indicator status-ok"></div>
+            <span id="status-text">Operational</span>
+            <button id="health-toggle" class="health-toggle" aria-expanded="false">
+              Show Details
+            </button>
+          </div>
+        </div>
+        <div id="health-content" class="health-content">
+          <div class="health-grid">
+            <div class="health-card">
+              <h3>Vector Store</h3>
+              <p id="vector-status">Status: Checking...</p>
+              <p id="vector-count">Documents: Checking...</p>
+              <p id="vector-kb">Knowledge Base: Checking...</p>
+            </div>
+            <div class="health-card">
+              <h3>LLM Service</h3>
+              <p id="llm-status">Status: Checking...</p>
+              <p id="llm-model">Model: Checking...</p>
+            </div>
+            <div class="health-card">
+              <h3>Languages</h3>
+              <p id="languages-supported">Supported: Checking...</p>
+            </div>
+            <div class="health-card">
+              <h3>System Info</h3>
+              <p id="system-initialized">Initialized: Checking...</p>
+              <p id="system-updated">Last Updated: Checking...</p>
+            </div>
+          </div>
+          <button id="refresh-health" class="refresh-button">Refresh Status</button>
+        </div>
+      </div>
+      
+      <!-- Start Chat Button -->
+      <div class="start-chat-container">
+        <button id="start-chat-button">Start Your Spiritual Journey</button>
       </div>
       
       <div class="chat-container">
@@ -280,10 +463,18 @@
     </main>
     
     <footer>
-      <p>Powered by Deepseek-R1 + LlamaIndex + Qdrant | Multilingual Spiritual Guide based on the Bhagavad Gita</p>
+      <a href="https://shubhamsweb.netlify.app">Made with ❤️ by Shubham Agarwal</a>
     </footer>
   </div>
   
   <script src="js/app.js"></script>
+  <script src="js/health-panel.js"></script>
+  <script>
+    // Script to handle showing the chat container
+    document.getElementById('start-chat-button').addEventListener('click', function() {
+      document.querySelector('.chat-container').style.display = 'flex';
+      document.querySelector('.start-chat-container').style.display = 'none';
+    });
+  </script>
 </body>
 </html>

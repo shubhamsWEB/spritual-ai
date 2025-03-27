@@ -54,6 +54,10 @@ class VectorStore {
     logger.info(`Initialized Qdrant client at ${host} for collection ${this.collectionName}`);
   }
 
+  getKnowledgeBase() {
+    return this.collectionName;
+  }
+
   /**
    * Initialize the collection with improved error handling
    * @returns {Promise<void>}

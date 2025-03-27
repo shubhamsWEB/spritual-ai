@@ -668,7 +668,8 @@ Important instructions:
                 vectorStore: {
                     status: vectorStatus,
                     documentCount: vectorCount,
-                    available: this.vectorStoreAvailable
+                    available: this.vectorStoreAvailable,
+                    knowledgeBase: this.vectorStore.getKnowledgeBase()
                 },
                 llm: {
                     status: groqAvailable ? 'ok' : 'unavailable',

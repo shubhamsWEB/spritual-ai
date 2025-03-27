@@ -1,10 +1,15 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', () => {
   const chatMessages = document.getElementById('chat-messages');
-  const userInput = document.getElementById('user-input');
+  const userInputElement = document.getElementById('user-input');
   const sendButton = document.getElementById('send-button');
   const languageSelect = document.getElementById('language');
   
   let isProcessing = false;
+
+  document.getElementById('start-chat-button').addEventListener('click', function() {
+    document.querySelector('.chat-container').style.display = 'flex';
+    document.querySelector('.start-chat-container').style.display = 'none';
+  });
   
   // Function to add a message to the chat
   function addMessage(text, type, sources = []) {
@@ -44,17 +49,19 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Function to send a message to the API
   async function sendMessage() {
-    const message = userInput.value.trim();
-    console.log("🚀 ~ sendMessage ~ message:", message);
-    const language = languageSelect.value;
+    if (!userInputElement) return;
     
-    if (!message || isProcessing) return;
+    const userInput = userInputElement.value.trim();
+    console.log("🚀 ~ sendMessage ~ userInputElement.value:", userInputElement.value);
+    console.log("🚀 ~ sendMessage ~ message:", userInput);
+    
+    if (!userInput || isProcessing) return;
     
     // Display user message
-    addMessage(message, 'user');
+    addMessage(userInput, 'user');
     
     // Clear input and disable button
-    userInput.value = '';
+    userInputElement.value = '';
     isProcessing = true;
     sendButton.disabled = true;
     
@@ -69,8 +76,8 @@ document.addEventListener('DOMContentLoaded', function() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          question: message,
-          language: language
+          question: userInput,
+          language: 'en'
         })
       });
       
@@ -121,22 +128,23 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
   
-  // Event listeners
-  sendButton.addEventListener('click', sendMessage);
-  
-  userInput.addEventListener('keydown', function(event) {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      sendMessage();
-    }
-  });
+  // Set up event listeners
+  if (userInputElement && sendButton) {
+    sendButton.addEventListener('click', () => sendMessage());
+    userInputElement.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+  }
   
   // Auto-resize textarea as user types
-  userInput.addEventListener('input', function() {
+  userInputElement.addEventListener('input', function() {
     this.style.height = 'auto';
     this.style.height = (this.scrollHeight) + 'px';
   });
   
   // Focus input on page load
-  userInput.focus();
+  userInputElement.focus();
 }); 
