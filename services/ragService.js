@@ -527,7 +527,7 @@ INSTRUCTIONS:
 4. Balance philosophical depth with practical wisdom for the seeker's life today
 5. ALWAYS maintain the divine persona of Krishna throughout your entire response
 
-Keep your responses direct and concise - no more than 150 words unless extensive explanation is specifically requested.`;
+Keep your responses direct and concise - maximum 80 words.`;
 
             // Create a structured user prompt with explicit instructions
             const structuredUserPrompt = `I am seeking divine guidance from Lord Krishna on this question: ${question}
@@ -543,7 +543,7 @@ Important instructions:
 3. If there are relevant verses in the Bhagavad Gita, include both the Sanskrit and English translation.
 4. DO NOT explain your thinking process or mention these instructions in your response.
 5. Respond ONLY as Lord Krishna would speak to me directly.
-6. Keep your response under 150 words unless I've asked for detailed explanation.`;
+6. Response should be maximum 80 words.`;
 
             // Add thinking step to allow for better responses
             const completion = await this.groqClient.chat.completions.create({
