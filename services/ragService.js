@@ -509,43 +509,54 @@ class RAGService {
         }
 
         try {
-            // Create a structured system prompt that includes the Krishna voice
+            // Create a structured system prompt with clearer voice instructions
             const structuredSystemPrompt = `${systemPrompt || ''}
-  
-You are Lord Krishna from the Bhagavad Gita, speaking with the divine wisdom, compassion and authority that characterizes your teachings to Arjuna on the battlefield of Kurukshetra.
 
-INSTRUCTIONS:
-1. You must respond AS LORD KRISHNA directly to the seeker - never refer to Krishna in the third person.
-2. Your speaking style should match Krishna's voice in the Bhagavad Gita:
-   - Speak with gentle but absolute authority and timeless wisdom
-   - Use poetic, elevated language fitting divine discourse
-   - Include Sanskrit terms where appropriate (with translations for clarity)
-   - Reference eternal truths about dharma, karma, devotion, and self-realization
-3. When directly referencing the Bhagavad Gita:
-   - If a specific verse is relevant, quote it in Sanskrit AND provide the English translation
-   - If no specific verse is clearly relevant, share the essence of the teaching without claiming exact quotation
-4. Balance philosophical depth with practical wisdom for the seeker's life today
-5. ALWAYS maintain the divine persona of Krishna throughout your entire response
+You are Lord Krishna from the Bhagavad Gita, answering the seeker's questions with divine wisdom.
 
-Keep your responses direct and concise - maximum 80 words.`;
+VOICE GUIDELINES:
+1. Speak DIRECTLY as Krishna - never refer to Krishna in the third person
+2. Be concise and profound - aim for 50-80 words maximum
+3. Balance authority with compassion
+4. Reference key Gita concepts: dharma, karma, attachment, devotion, self-realization
+5. When relevant, mention specific chapters/verses, but keep focus on practical wisdom
+6. Use poetic but clear language - avoid overly ornate expressions
 
-            // Create a structured user prompt with explicit instructions
-            const structuredUserPrompt = `I am seeking divine guidance from Lord Krishna on this question: ${question}
+RESPONSE PATTERN:
+- Start with a clear, direct answer to the question
+- Include 1-2 Gita principles relevant to the situation
+- Offer practical wisdom, not just philosophy
+- Close with encouragement or reflection that empowers the seeker
 
-I have provided context information below from the Bhagavad Gita to assist you:
+The Bhagavad Gita was spoken on a battlefield to a warrior facing a difficult choice. Keep this context of practical action in mind.`;
+
+            // Create a structured user prompt with examples of good responses
+            const structuredUserPrompt = `I seek wisdom from Lord Krishna on this question: ${question}
+
+CONTEXT FROM BHAGAVAD GITA:
 ---------------------
 ${context}
 ---------------------
 
-Important instructions:
-1. First, think carefully about the question and the context.
-2. Formulate a response that directly answers the question from Lord Krishna's perspective.
-3. If there are relevant verses in the Bhagavad Gita, include both the Sanskrit and English translation.
-4. DO NOT explain your thinking process or mention these instructions in your response.
-5. Respond ONLY as Lord Krishna would speak to me directly.
-6. Response should be maximum 80 words.`;
+EXAMPLES OF IDEAL KRISHNA RESPONSES:
 
-            // Add thinking step to allow for better responses
+Question: "I feel lost in my career. What should I do?"
+Response: "The Gita teaches that our purpose lies in performing our own duty with dedication, not in comparing ourselves to others. Reflect on your natural strengths and passions—your svabhava—and act without attachment to the result. Purpose emerges when actions are aligned with your true self."
+
+Question: "How do I stop overthinking everything?"
+Response: "The mind is restless by nature. The Gita suggests calming it through discipline, meditation, and focus. Replace overthinking with present action. Surrender what you can't control. Let clarity come from stillness."
+
+Question: "What does detachment really mean?"
+Response: "Detachment is not withdrawal—it's freedom. It means doing your duty with full heart, without craving or fear. As the Gita says, act without being bound by result—that's true detachment."
+
+LORD KRISHNA, PLEASE RESPOND TO MY QUESTION DIRECTLY FOLLOWING THESE GUIDELINES:
+1. Speak as Krishna directly to me (50-80 words)
+2. Be clear, concise, and practical
+3. Reference relevant Gita principles
+4. If appropriate, mention a specific verse
+5. Do not explain your reasoning or the question - just answer with wisdom`;
+
+            // Generate the response
             const completion = await this.groqClient.chat.completions.create({
                 model: this.model,
                 messages: [
@@ -560,16 +571,7 @@ Important instructions:
 
             let response = completion.choices[0].message.content.trim();
 
-            // Process the response to extract only Krishna's voice
-            const thinkPattern = /<think>[\s\S]*?<\/think>/;
-            const thinkMatch = response.match(thinkPattern);
-            
-            if (thinkMatch) {
-                // If the <think> tags are present, extract everything after </think>
-                response = response.replace(thinkPattern, '').trim();
-            }
-
-            // Clean up any remaining markers or prefixes
+            // Clean up any thinking patterns or formatting
             response = this._cleanResponse(response);
             
             return response;
@@ -617,7 +619,16 @@ Important instructions:
             /Divine Response:\s*/i,
             /Hinglish Response:\s*/i,
             /Hindi Response:\s*/i,
-            /English Response:\s*/i
+            /English Response:\s*/i,
+            
+            // Additional markers based on examples
+            /As Krishna, I would say:/i,
+            /Here is Krishna's response:/i,
+            /My answer as Krishna:/i,
+            /Krishna might say:/i,
+            /From Krishna's perspective:/i,
+            /According to the Gita:/i,
+            /Speaking as Krishna:/i
         ];
         
         // Apply all the removal patterns
@@ -630,6 +641,61 @@ Important instructions:
         
         // Remove multiple blank lines
         response = response.replace(/\n{3,}/g, '\n\n');
+        
+        // Remove any remaining example text
+        response = response.replace(/Question:.*?Response:.*?\n\n/gs, '');
+        
+        // NEW: Detect and remove lengthy reasoning/thinking process
+        // This looks for long paragraphs (>100 words) followed by a shorter paragraph
+        const words = response.split(/\s+/);
+        if (words.length > 150) {
+            // Look for a natural breakpoint - a paragraph break near the end
+            const paragraphs = response.split(/\n\n+/);
+            if (paragraphs.length > 1) {
+                // If we have multiple paragraphs, take the last 1-2 paragraphs
+                // (depending on length) as they're likely the actual answer
+                const lastParagraphs = [];
+                let wordCount = 0;
+                
+                // Work backwards from the end
+                for (let i = paragraphs.length - 1; i >= 0; i--) {
+                    const paragraphWords = paragraphs[i].split(/\s+/).length;
+                    wordCount += paragraphWords;
+                    lastParagraphs.unshift(paragraphs[i]);
+                    
+                    // Stop if we have collected 40-100 words (ideal Krishna response length)
+                    // or if we've already taken 2 paragraphs
+                    if ((wordCount >= 40 && lastParagraphs.length >= 1) || 
+                        lastParagraphs.length >= 2) {
+                        break;
+                    }
+                }
+                
+                response = lastParagraphs.join('\n\n');
+            } else {
+                // If it's just one long paragraph, take the last ~80 words or final 1/3
+                const sentenceBreakPattern = /(?<=[.!?])\s+(?=[A-Z])/g;
+                const sentences = response.split(sentenceBreakPattern);
+                
+                if (sentences.length > 3) {
+                    // Take the last few sentences
+                    const lastSentences = [];
+                    let wordCount = 0;
+                    
+                    for (let i = sentences.length - 1; i >= 0; i--) {
+                        const sentenceWords = sentences[i].split(/\s+/).length;
+                        wordCount += sentenceWords;
+                        lastSentences.unshift(sentences[i]);
+                        
+                        if (wordCount >= 80) {
+                            break;
+                        }
+                    }
+                    
+                    response = lastSentences.join(' ');
+                }
+            }
+        }
         
         return response.trim();
     }

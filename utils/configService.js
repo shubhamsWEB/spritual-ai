@@ -72,7 +72,7 @@ const configService = {
     timeout: () => parseInt(process.env.RAG_TIMEOUT || 30000), // 30 seconds
     chunkSize: () => parseInt(process.env.RAG_CHUNK_SIZE || 512),
     chunkOverlap: () => parseInt(process.env.RAG_CHUNK_OVERLAP || 50),
-    relevanceThreshold: () => parseFloat(process.env.RAG_RELEVANCE_THRESHOLD || 0.5),
+    relevanceThreshold: () => parseFloat(process.env.RAG_RELEVANCE_THRESHOLD || 0.3),
     debug: () => process.env.RAG_DEBUG === 'true' || false,
   },
   
