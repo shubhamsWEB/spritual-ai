@@ -4,12 +4,14 @@
 const express = require('express');
 const queryRoutes = require('./queryRoutes');
 const languageRoutes = require('./languageRoutes');
+const authRoutes = require('./authRouts');
 
 const router = express.Router();
 
 // Apply route groups
 router.use('/query', queryRoutes);
 router.use('/language', languageRoutes);
+router.use('/auth', authRoutes);
 
 // API information endpoint
 router.get('/', (req, res) => {
@@ -23,10 +25,17 @@ router.get('/', (req, res) => {
       '/api/language': 'Get supported languages',
       '/api/language/detect': 'Detect the language of text',
       '/api/language/translate': 'Translate text',
-      '/api/language/format-gita-reference': 'Format a Gita reference in a specific language'
+      '/api/language/format-gita-reference': 'Format a Gita reference in a specific language',
+      '/api/auth/register': 'Register a new user',
+      '/api/auth/login': 'Login a user',
+      '/api/auth/logout': 'Logout a user',
+      '/api/auth/me': 'Get current user profile',
+      '/api/auth/reset-password': 'Request password reset',
+      '/api/auth/profile': 'Update user profile'
     }
   });
 });
+
 // Add a system health endpoint
 router.get('/system/health', async (req, res) => {
   try {

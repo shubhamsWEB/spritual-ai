@@ -7,6 +7,7 @@ const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const cookieParser = require('cookie-parser');
 const configService = require('./utils/configService');
 const logger = require('./utils/logger');
 const errorHandler = require('./utils/errorHandler.js');
@@ -17,7 +18,19 @@ const app = express();
 
 // Security middleware
 app.use(helmet());
-app.use(cors());
+
+// Configure CORS for frontend
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || '*', // Allow from specific origin or all in development
+  credentials: true, // Allow cookies with CORS
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+app.use(cors(corsOptions));
+
+// Parse cookies
+app.use(cookieParser(process.env.COOKIE_SECRET));
 
 // Parse JSON bodies
 app.use(express.json());

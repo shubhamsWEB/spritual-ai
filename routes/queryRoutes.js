@@ -2,11 +2,12 @@
  * Routes for spiritual queries
  */
 const express = require('express');
-const { body } = require('express-validator');
+const { body, query } = require('express-validator');
 const rateLimit = require('express-rate-limit');
 const configService = require('../utils/configService');
 const queryController = require('../controllers/queryController');
 const requestValidator = require('../middleware/requestValidator');
+const verifySupabaseAuth = require('../middleware/verifySupabaseAuth');
 
 const router = express.Router();
 
@@ -29,10 +30,11 @@ router.use(limiter);
 /**
  * @route POST /api/query
  * @description Process a spiritual query
- * @access Public
+ * @access Private - requires authentication
  */
 router.post(
   '/',
+  verifySupabaseAuth, // Use Supabase authentication middleware to protect this route
   [
     body('question')
       .notEmpty()
@@ -60,5 +62,46 @@ router.post(
  * @access Public
  */
 router.get('/health', queryController.getSystemHealth);
+
+/**
+ * @route GET /api/query/history
+ * @description Get user query history
+ * @access Private - requires authentication
+ */
+router.get(
+  '/history',
+  verifySupabaseAuth,
+  [
+    query('limit')
+      .optional()
+      .isInt({ min: 1, max: 100 })
+      .withMessage('Limit must be between 1 and 100'),
+    
+    requestValidator
+  ],
+  queryController.getUserQueryHistory
+);
+
+/**
+ * @route DELETE /api/query/history/:recordId
+ * @description Delete a query history record
+ * @access Private - requires authentication
+ */
+router.delete(
+  '/history/:recordId',
+  verifySupabaseAuth,
+  queryController.deleteQueryHistory
+);
+
+/**
+ * @route DELETE /api/query/history
+ * @description Clear all query history
+ * @access Private - requires authentication
+ */
+router.delete(
+  '/history',
+  verifySupabaseAuth,
+  queryController.clearQueryHistory
+);
 
 module.exports = router;
