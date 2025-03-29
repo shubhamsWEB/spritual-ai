@@ -52,8 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!userInputElement) return;
     
     const userInput = userInputElement.value.trim();
-    console.log("🚀 ~ sendMessage ~ userInputElement.value:", userInputElement.value);
-    console.log("🚀 ~ sendMessage ~ message:", userInput);
     
     if (!userInput || isProcessing) return;
     
@@ -86,6 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       const data = await response.json();
+      console.log("🚀 ~ sendMessage ~ data:", data);
       
       // Remove typing indicator
       removeTypingIndicator();

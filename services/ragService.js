@@ -283,7 +283,7 @@ class RAGService {
             logger.info(`Query processed in ${queryDuration}ms`);
             
             return {
-                answer: llmResponse,
+                answer: llmResponse.content,
                 sources: sources,
                 metadata: {
                     query: question,
@@ -292,7 +292,8 @@ class RAGService {
                     duration: queryDuration,
                     relevantSourcesFound,
                     modelUsed: this.model,
-                    timestamp: new Date().toISOString()
+                    timestamp: new Date().toISOString(),
+                    tokenUsage: llmResponse.tokenUsage
                 }
             };
         } catch (error) {
@@ -498,14 +499,17 @@ class RAGService {
      * @param {string} context Retrieved context
      * @param {string} systemPrompt System prompt
      * @param {number} temperature Temperature parameter
-     * @returns {Promise<string>} LLM response
+     * @returns {Promise<Object>} LLM response
      * @private
      */
     async _generateLLMResponse(question, context, systemPrompt, temperature = this.temperature) {
         if (!this.groqClient) {
             logger.error('Groq client not initialized');
             this.stats.errors.llm++;
-            return "O beloved seeker, forgive me, but I am unable to access the divine wisdom at this moment. Like the clouds that temporarily obscure the sun, this is but a passing limitation. Return soon with your question, and the light of understanding shall shine forth. May peace be with you in the meantime.";
+            return {
+                content: "O beloved seeker, forgive me, but I am unable to access the divine wisdom at this moment. Like the clouds that temporarily obscure the sun, this is but a passing limitation. Return soon with your question, and the light of understanding shall shine forth. May peace be with you in the meantime.",
+                tokenUsage: null
+            };
         }
 
         try {
@@ -527,6 +531,7 @@ RESPONSE PATTERN:
 - Include 1-2 Gita principles relevant to the situation
 - Offer practical wisdom, not just philosophy
 - Close with encouragement or reflection that empowers the seeker
+- Include a verse if relevant
 
 The Bhagavad Gita was spoken on a battlefield to a warrior facing a difficult choice. Keep this context of practical action in mind.`;
 
@@ -574,11 +579,18 @@ LORD KRISHNA, PLEASE RESPOND TO MY QUESTION DIRECTLY FOLLOWING THESE GUIDELINES:
             // Clean up any thinking patterns or formatting
             response = this._cleanResponse(response);
             
-            return response;
+            // Return the response content along with token usage
+            return {
+                content: response,
+                tokenUsage: completion.usage || null
+            };
         } catch (error) {
             logger.error(`Error generating LLM response: ${error.message}`);
             this.stats.errors.llm++;
-            return "O noble soul, I regret that there has been a disturbance in our connection. Like the passing clouds that momentarily obscure the sun, this difficulty shall pass. Please seek my guidance again, for I am ever-present to illuminate your path with divine wisdom.";
+            return {
+                content: "O noble soul, I regret that there has been a disturbance in our connection. Like the passing clouds that momentarily obscure the sun, this difficulty shall pass. Please seek my guidance again, for I am ever-present to illuminate your path with divine wisdom.",
+                tokenUsage: null
+            };
         }
     }
 
